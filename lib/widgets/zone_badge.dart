@@ -29,11 +29,11 @@ class ZoneBadge extends StatelessWidget {
     final bgColor = PulseColors.bgForZone(zone);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withValues(alpha: 0.15), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -47,12 +47,13 @@ class ZoneBadge extends StatelessWidget {
             ),
           ),
           if (showLabel) ...[
-            const SizedBox(width: 5),
+            const SizedBox(width: 6),
             Text(
-              _label,
+              _label.toUpperCase(),
               style: PulseTypography.labelSmall.copyWith(
                 color: color,
-                letterSpacing: 0.3,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],

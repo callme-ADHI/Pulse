@@ -3,11 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'colors.dart';
 
 /// AEVORAX typography.
-/// - Inter for all UI chrome
-/// - JetBrains Mono for numbers, timers, YAML, and any precision data
+/// - DM Sans for all UI chrome (geometric, clean)
+/// - JetBrains Mono for numbers, timers, YAML, and precision readouts
 abstract final class PulseTypography {
   // ── Display ───────────────────────────────────────────────────────────────
-  static TextStyle displayLarge = GoogleFonts.inter(
+  static TextStyle displayLarge = GoogleFonts.dmSans(
     fontSize: 32,
     fontWeight: FontWeight.w700,
     color: PulseColors.textPrimary,
@@ -15,7 +15,7 @@ abstract final class PulseTypography {
     height: 1.2,
   );
 
-  static TextStyle displayMedium = GoogleFonts.inter(
+  static TextStyle displayMedium = GoogleFonts.dmSans(
     fontSize: 24,
     fontWeight: FontWeight.w600,
     color: PulseColors.textPrimary,
@@ -24,68 +24,68 @@ abstract final class PulseTypography {
   );
 
   // ── Title ─────────────────────────────────────────────────────────────────
-  static TextStyle titleLarge = GoogleFonts.inter(
+  static TextStyle titleLarge = GoogleFonts.dmSans(
     fontSize: 20,
     fontWeight: FontWeight.w600,
     color: PulseColors.textPrimary,
     letterSpacing: -0.2,
   );
 
-  static TextStyle titleMedium = GoogleFonts.inter(
+  static TextStyle titleMedium = GoogleFonts.dmSans(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: PulseColors.textPrimary,
     letterSpacing: -0.1,
   );
 
-  static TextStyle titleSmall = GoogleFonts.inter(
+  static TextStyle titleSmall = GoogleFonts.dmSans(
     fontSize: 14,
     fontWeight: FontWeight.w600,
     color: PulseColors.textPrimary,
   );
 
   // ── Body ──────────────────────────────────────────────────────────────────
-  static TextStyle bodyLarge = GoogleFonts.inter(
+  static TextStyle bodyLarge = GoogleFonts.dmSans(
     fontSize: 16,
     fontWeight: FontWeight.w400,
     color: PulseColors.textPrimary,
     height: 1.5,
   );
 
-  static TextStyle bodyMedium = GoogleFonts.inter(
+  static TextStyle bodyMedium = GoogleFonts.dmSans(
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: PulseColors.textPrimary,
     height: 1.5,
   );
 
-  static TextStyle bodySmall = GoogleFonts.inter(
+  static TextStyle bodySmall = GoogleFonts.dmSans(
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: PulseColors.textSecondary,
     height: 1.4,
   );
 
-  // ── Label ─────────────────────────────────────────────────────────────────
-  static TextStyle labelLarge = GoogleFonts.inter(
+  // ── Label (Uppercase, letterSpacing +0.12em = 1.2 for size 10) ────────────
+  static TextStyle labelLarge = GoogleFonts.dmSans(
     fontSize: 13,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     color: PulseColors.textSecondary,
-    letterSpacing: 0.4,
+    letterSpacing: 1.5,
   );
 
-  static TextStyle labelMedium = GoogleFonts.inter(
+  static TextStyle labelMedium = GoogleFonts.dmSans(
     fontSize: 11,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     color: PulseColors.textSecondary,
-    letterSpacing: 0.6,
+    letterSpacing: 1.3,
   );
 
-  static TextStyle labelSmall = GoogleFonts.inter(
+  static TextStyle labelSmall = GoogleFonts.dmSans(
     fontSize: 10,
     fontWeight: FontWeight.w600,
     color: PulseColors.textSecondary,
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
   );
 
   // ── Mono — for numbers, timers, scores, YAML ──────────────────────────────

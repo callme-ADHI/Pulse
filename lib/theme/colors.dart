@@ -1,49 +1,48 @@
 import 'package:flutter/material.dart';
 
-/// AEVORAX house-style palette.
-/// Dark-first. Desaturated zone colors — instrument panel, not alarm system.
+/// AEVORAX house-style palette: Pitch Black Luxury.
+/// True pitch black, elegant gold accent, and muted zone indicators.
 abstract final class PulseColors {
   // ── Base ──────────────────────────────────────────────────────────────────
-  static const Color background = Color(0xFF0B0C0E);
-  static const Color surface = Color(0xFF16181C);
-  static const Color surfaceElevated = Color(0xFF1E2127);
-  static const Color border = Color(0xFF2A2D34);
-  static const Color borderSubtle = Color(0xFF1F2228);
+  static const Color background = Color(0xFF000000);
+  static const Color surface = Color(0xFF0A0A0A);        // L1
+  static const Color surfaceElevated = Color(0xFF111111); // L2
+  static const Color surfaceOverlay = Color(0xFF1A1A1A);  // L3
+  static const Color border = Color(0xFF1E1E1E);          // Border default
+  static const Color borderStrong = Color(0xFF2A2A2A);    // Border strong
 
   // ── Text ──────────────────────────────────────────────────────────────────
-  static const Color textPrimary = Color(0xFFE8E9EB);
-  static const Color textSecondary = Color(0xFF7A7D85);
-  static const Color textTertiary = Color(0xFF4A4D55);
-  static const Color textInverse = Color(0xFF0B0C0E);
+  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textSecondary = Color(0xFF8A8A8A);
+  static const Color textMuted = Color(0xFF3A3A3A);
+  static const Color textTertiary = textMuted;
 
-  // ── Accent ────────────────────────────────────────────────────────────────
-  static const Color accent = Color(0xFF3D8B8B);    // muted teal — primary CTA
-  static const Color accentDim = Color(0xFF2A6060);
+  // ── Accent (Gold) ─────────────────────────────────────────────────────────
+  static const Color accent = Color(0xFFC9A84C);          // Gold primary
+  static const Color accentDim = Color(0xFFB89030);       // Gold pressed/hover
 
-  // ── Zone colors (desaturated — calm, not alarming) ────────────────────────
-  static const Color zoneActive = Color(0xFF3D8B8B);    // muted teal
-  static const Color zoneDrifting = Color(0xFFC8940A);  // amber
-  static const Color zoneCold = Color(0xFFC4622D);      // burnt orange
-  static const Color zoneCritical = Color(0xFFB53B3B);  // deep red
+  // ── Zone text/dot colors ──────────────────────────────────────────────────
+  static const Color zoneActive = Color(0xFF1DB87B);
+  static const Color zoneDrifting = Color(0xFFC9911D);
+  static const Color zoneCold = Color(0xFFC9601D);
+  static const Color zoneCritical = Color(0xFFC93030);
 
-  // ── Zone background tints (for badges, node fills) ────────────────────────
-  static const Color zoneActiveBg = Color(0xFF0E2222);
-  static const Color zoneDriftingBg = Color(0xFF241A00);
-  static const Color zoneColdBg = Color(0xFF241200);
-  static const Color zoneCriticalBg = Color(0xFF220A0A);
+  // ── Zone background pill fills ────────────────────────────────────────────
+  static const Color zoneActiveBg = Color(0xFF0D2B1F);
+  static const Color zoneDriftingBg = Color(0xFF2B2208);
+  static const Color zoneColdBg = Color(0xFF2B1508);
+  static const Color zoneCriticalBg = Color(0xFF2B0808);
 
-  // ── Status ────────────────────────────────────────────────────────────────
-  static const Color success = Color(0xFF3A7D5A);
-  static const Color warning = Color(0xFFC8940A);
-  static const Color error = Color(0xFFB53B3B);
-  static const Color info = Color(0xFF2F6B9A);
+  // ── Semantic aliases (for backward compat) ────────────────────────────────
+  static const Color warning = zoneDrifting;  // amber — use sparingly
+  static const Color error = zoneCritical;    // deep red
 
   // ── Graph edge colors ─────────────────────────────────────────────────────
   static const Color edgeDependsOn = Color(0xFF5A6A85);
-  static const Color edgeBlocks = Color(0xFFB53B3B);
-  static const Color edgeInspiredBy = Color(0xFF3D6B8B);
-  static const Color edgePartOf = Color(0xFF5A7A5A);
-  static const Color edgeRelatedTo = Color(0xFF4A4D55);
+  static const Color edgeBlocks = Color(0xFFC93030);
+  static const Color edgeInspiredBy = Color(0xFFC9A84C);
+  static const Color edgePartOf = Color(0xFF1DB87B);
+  static const Color edgeRelatedTo = Color(0xFF3A3A3A);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   static Color forZone(String zone) {

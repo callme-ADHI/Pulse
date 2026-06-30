@@ -6,60 +6,27 @@ import '../../providers.dart';
 import '../../theme/colors.dart';
 import '../../theme/typography.dart';
 import '../../widgets/zone_badge.dart';
-import '../graph/graph_screen.dart';
-import 'package:intl/intl.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: PulseColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
-            const SizedBox(height: 8),
-            _buildSegmentedToggle(),
-            const SizedBox(height: 12),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                physics: const NeverScrollableScrollPhysics(),
-                children: const [
-                  HomeListView(),
-                  GraphScreen(embeddedMode: true),
-                ],
-              ),
-            ),
+            _buildHeader(context),
+            const SizedBox(height: 16),
+            const Expanded(child: HomeListView()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Row(
@@ -67,60 +34,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Pulse', style: PulseTypography.displayMedium),
               Text(
-                'by AEVORAX',
-                style: PulseTypography.labelMedium.copyWith(
-                  color: PulseColors.textTertiary,
+                'PULSE',
+                style: PulseTypography.displayMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'BY AEVORAX',
+                style: PulseTypography.labelSmall.copyWith(
+                  color: PulseColors.accent,
+                  fontSize: 10,
                   letterSpacing: 2.0,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.bar_chart_rounded),
-            color: PulseColors.textSecondary,
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             onPressed: () => context.pushNamed('weeklyReport'),
-            tooltip: 'Weekly Report',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.bar_chart_rounded, size: 16, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(
+                  'Report',
+                  style: PulseTypography.titleSmall.copyWith(fontSize: 12),
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSegmentedToggle() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        height: 36,
-        decoration: BoxDecoration(
-          color: PulseColors.surface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: PulseColors.border),
-        ),
-        child: TabBar(
-          controller: _tabController,
-          indicator: BoxDecoration(
-            color: PulseColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          indicatorSize: TabBarIndicatorSize.tab,
-          dividerColor: Colors.transparent,
-          labelStyle: PulseTypography.labelLarge.copyWith(
-            color: PulseColors.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: PulseTypography.labelLarge.copyWith(
-            color: PulseColors.textTertiary,
-          ),
-          labelColor: PulseColors.textPrimary,
-          unselectedLabelColor: PulseColors.textTertiary,
-          tabs: const [
-            Tab(text: 'List'),
-            Tab(text: 'Map'),
-          ],
-        ),
       ),
     );
   }
@@ -131,17 +84,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 class HomeListView extends ConsumerWidget {
   const HomeListView({super.key});
 
-  static const _zoneOrder = ['critical', 'cold', 'drifting', 'active'];
-
-  List<Project> _sortProjects(List<Project> projects) {
-    return [...projects]..sort((a, b) {
-        // Sort by zone severity using DecayScore if available
-        // For now, sort by lastSessionAt (most stale first for critical)
-        // Full zone sorting happens after Phase 5 decay engine is wired
-        final aTime = a.lastSessionAt ?? a.createdAt;
-        final bTime = b.lastSessionAt ?? b.createdAt;
-        return aTime.compareTo(bTime); // oldest first
-      });
+  List<Project> _sortProjects(List<Project> projects, WidgetRef ref) {
+    // Sort projects: we can sort by decay score descending (critical first)
+    final sorted = [...projects];
+    sorted.sort((a, b) {
+      final aLog = ref.read(decayLogsProvider(a.id)).valueOrNull?.lastOrNull;
+      final bLog = ref.read(decayLogsProvider(b.id)).valueOrNull?.lastOrNull;
+      final aScore = aLog?.score ?? 0.0;
+      final bScore = bLog?.score ?? 0.0;
+      return bScore.compareTo(aScore); // highest score (critical) first
+    });
+    return sorted;
   }
 
   @override
@@ -162,11 +115,11 @@ class HomeListView extends ConsumerWidget {
         if (projects.isEmpty) {
           return _EmptyState();
         }
-        final sorted = _sortProjects(projects);
+        final sorted = _sortProjects(projects, ref);
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
           itemCount: sorted.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) =>
               _ProjectRow(project: sorted[index]),
         );
@@ -180,74 +133,112 @@ class _ProjectRow extends ConsumerWidget {
   final Project project;
 
   String _relativeTime(DateTime? dt) {
-    if (dt == null) return 'never';
+    if (dt == null) return 'Never started';
     final diff = DateTime.now().difference(dt);
-    if (diff.inDays >= 1) return '${diff.inDays}d ago';
-    if (diff.inHours >= 1) return '${diff.inHours}h ago';
-    return 'just now';
+    if (diff.inDays >= 1) return '${diff.inDays}d since last session';
+    if (diff.inHours >= 1) return '${diff.inHours}h since last session';
+    return 'Session just completed';
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Get latest decay log for zone color
+    // Get latest decay log for zone color & score
     final latestLogAsync = ref.watch(decayLogsProvider(project.id));
     final latestLog = latestLogAsync.valueOrNull?.isNotEmpty == true
         ? latestLogAsync.valueOrNull!.last
         : null;
     final zone = latestLog?.zone ?? 'active';
+    final score = latestLog?.score ?? 0.0;
 
     return GestureDetector(
       onTap: () => context.pushNamed(
         'projectDetail',
         pathParameters: {'id': project.id},
       ),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: Container(
         decoration: BoxDecoration(
           color: PulseColors.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: zone == 'critical'
-                ? PulseColors.zoneCritical.withOpacity(0.4)
-                : PulseColors.border,
+            color: PulseColors.surfaceOverlay,
             width: 1,
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Zone dot
-              ZoneDot(zone: zone, size: 9),
-              const SizedBox(width: 12),
-              // Project info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
                       project.name,
-                      style: PulseTypography.titleSmall,
+                      style: PulseTypography.titleMedium.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text(
-                          _relativeTime(project.lastSessionAt),
-                          style: PulseTypography.bodySmall,
-                        ),
-                        const SizedBox(width: 8),
-                        _PriorityTag(priority: project.priority),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  ZoneBadge(zone: zone),
+                ],
               ),
-              const SizedBox(width: 12),
-              // Start session button
-              _StartSessionButton(project: project),
+              if (project.description != null && project.description!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  project.description!,
+                  style: PulseTypography.bodySmall.copyWith(
+                    color: PulseColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            'Score: ',
+                            style: PulseTypography.bodySmall.copyWith(
+                              color: PulseColors.textSecondary,
+                            ),
+                          ),
+                          Text(
+                            '${score.toInt()}',
+                            style: PulseTypography.monoLarge.copyWith(
+                              color: PulseColors.forZone(zone),
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _relativeTime(project.lastSessionAt),
+                        style: PulseTypography.bodySmall.copyWith(
+                          color: PulseColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                  _StartSessionButton(project: project),
+                ],
+              ),
             ],
           ),
         ),
@@ -278,7 +269,7 @@ class _StartSessionButton extends ConsumerWidget {
           decoration: BoxDecoration(
             color: PulseColors.zoneActiveBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: PulseColors.zoneActive.withOpacity(0.4)),
+            border: Border.all(color: PulseColors.zoneActive.withValues(alpha: 0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -291,11 +282,12 @@ class _StartSessionButton extends ConsumerWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 6),
               Text(
-                'Live',
+                'LIVE',
                 style: PulseTypography.labelSmall.copyWith(
                   color: PulseColors.zoneActive,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -304,38 +296,32 @@ class _StartSessionButton extends ConsumerWidget {
       );
     }
 
-    return GestureDetector(
-      onTap: hasAnyActive
-          ? null
-          : () => _startSession(context, ref),
-      child: Container(
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: hasAnyActive
-              ? PulseColors.surfaceElevated
-              : PulseColors.accentDim,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: hasAnyActive
-                ? PulseColors.border
-                : PulseColors.accent.withOpacity(0.5),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: Colors.white,
+        side: const BorderSide(color: Color(0xFF222222), width: 1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      onPressed: hasAnyActive ? null : () => _startSession(context, ref),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
+          const SizedBox(width: 4),
+          Text(
+            'Start',
+            style: PulseTypography.titleSmall.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
           ),
-        ),
-        child: Text(
-          'Start',
-          style: PulseTypography.labelSmall.copyWith(
-            color: hasAnyActive
-                ? PulseColors.textTertiary
-                : PulseColors.accent,
-          ),
-        ),
+        ],
       ),
     );
   }
 
   Future<void> _startSession(BuildContext context, WidgetRef ref) async {
     final sessionDao = ref.read(sessionDaoProvider);
-    final projectDao = ref.read(projectDaoProvider);
     const uuid = _UuidHelper();
     final sessionId = uuid.v4();
     final now = DateTime.now();
@@ -358,35 +344,10 @@ class _StartSessionButton extends ConsumerWidget {
   }
 }
 
-// Minimal uuid helper to avoid importing uuid in widget layer
 class _UuidHelper {
   const _UuidHelper();
   String v4() {
-    // Falls back to a timestamp-based id in the widget layer.
-    // The real uuid import is in service layers.
     return DateTime.now().microsecondsSinceEpoch.toString();
-  }
-}
-
-class _PriorityTag extends StatelessWidget {
-  const _PriorityTag({required this.priority});
-  final String priority;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = switch (priority) {
-      'high' => PulseColors.zoneCritical,
-      'low' => PulseColors.textTertiary,
-      _ => PulseColors.textSecondary,
-    };
-    return Text(
-      priority.toUpperCase(),
-      style: PulseTypography.labelSmall.copyWith(
-        color: color,
-        fontSize: 9,
-        letterSpacing: 1.0,
-      ),
-    );
   }
 }
 
@@ -394,55 +355,22 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: PulseColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: PulseColors.border),
-              ),
-              child: const Icon(
-                Icons.radar_rounded,
-                color: PulseColors.textTertiary,
-                size: 28,
-              ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'NO PROJECTS YET',
+            style: PulseTypography.labelSmall.copyWith(
+              color: PulseColors.textSecondary,
+              letterSpacing: 1.5,
             ),
-            const SizedBox(height: 20),
-            Text(
-              'No projects yet',
-              style: PulseTypography.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Start with a project you\'re already working on, or paste an AI-generated YAML plan.',
-              style: PulseTypography.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 28),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => context.pushNamed('newProject'),
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('New Project'),
-                ),
-                const SizedBox(width: 12),
-                OutlinedButton.icon(
-                  onPressed: () => context.pushNamed('import'),
-                  icon: const Icon(Icons.content_paste_rounded, size: 16),
-                  label: const Text('Paste YAML'),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => context.pushNamed('newProject'),
+            child: const Text('New Project'),
+          ),
+        ],
       ),
     );
   }

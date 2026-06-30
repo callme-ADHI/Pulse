@@ -9,6 +9,7 @@ import 'features/import/import_preview_screen.dart';
 import 'features/weekly_report/weekly_report_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/import_history_screen.dart';
+import 'features/graph/graph_screen.dart';
 import 'widgets/nav_bar.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -21,6 +22,11 @@ final GoRouter appRouter = GoRouter(
           path: '/home',
           name: 'home',
           builder: (context, state) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: '/map',
+          name: 'map',
+          builder: (context, state) => const GraphScreen(),
         ),
         GoRoute(
           path: '/inbox',

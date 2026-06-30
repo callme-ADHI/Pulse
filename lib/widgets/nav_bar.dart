@@ -8,7 +8,7 @@ import '../features/capture/quick_capture_modal.dart';
 
 /// The bottom navigation shell — §7.10
 /// Center Capture button breaks the bar's top edge.
-/// Active tab: filled icon + label. Inactive: outline icon only.
+/// Active tab: gold icon + uppercase gold label. Inactive: icon only, white at 35% opacity.
 class PulseShell extends ConsumerWidget {
   const PulseShell({super.key, required this.child});
   final Widget child;
@@ -19,6 +19,12 @@ class PulseShell extends ConsumerWidget {
       route: '/home',
       selectedIcon: Icons.home_rounded,
       unselectedIcon: Icons.home_outlined,
+    ),
+    _NavTab(
+      label: 'Map',
+      route: '/map',
+      selectedIcon: Icons.hub_rounded,
+      unselectedIcon: Icons.hub_outlined,
     ),
     _NavTab(
       label: 'Inbox',
@@ -36,8 +42,9 @@ class PulseShell extends ConsumerWidget {
 
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/inbox')) return 1;
-    if (location.startsWith('/settings')) return 2;
+    if (location.startsWith('/map')) return 1;
+    if (location.startsWith('/inbox')) return 2;
+    if (location.startsWith('/settings')) return 3;
     return 0;
   }
 
@@ -72,9 +79,10 @@ class _PulseNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: PulseColors.surface,
+        color: Colors.black,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
         border: Border(
-          top: BorderSide(color: PulseColors.border, width: 1),
+          top: BorderSide(color: PulseColors.surfaceOverlay, width: 1),
         ),
       ),
       child: SafeArea(
@@ -82,7 +90,7 @@ class _PulseNavBar extends StatelessWidget {
           height: 60,
           child: Row(
             children: [
-              // Left side tabs (Home, Inbox)
+              // Left side tabs (Home, Map)
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -94,12 +102,13 @@ class _PulseNavBar extends StatelessWidget {
               ),
               // Space for the floating capture button
               const SizedBox(width: 80),
-              // Right side tab (Settings)
+              // Right side tabs (Inbox, Settings)
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildTab(context, 2, tabs[2]),
+                    _buildTab(context, 3, tabs[3]),
                   ],
                 ),
               ),
@@ -122,13 +131,15 @@ class _PulseNavBar extends StatelessWidget {
           children: [
             Icon(
               isSelected ? tab.selectedIcon : tab.unselectedIcon,
-              color: isSelected ? PulseColors.accent : PulseColors.textTertiary,
+              color: isSelected
+                  ? PulseColors.accent
+                  : Colors.white.withValues(alpha: 0.35),
               size: 22,
             ),
             if (isSelected) ...[
               const SizedBox(height: 3),
               Text(
-                tab.label,
+                tab.label.toUpperCase(),
                 style: PulseTypography.labelSmall.copyWith(
                   color: PulseColors.accent,
                   fontSize: 10,
@@ -148,26 +159,21 @@ class _CaptureButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // FAB is 50px circle + 4px black border = 58px total
     return GestureDetector(
       onTap: () => _openCapture(context),
       child: Container(
-        width: 56,
-        height: 56,
+        width: 58,
+        height: 58,
         decoration: BoxDecoration(
           color: PulseColors.accent,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: PulseColors.accent.withOpacity(0.3),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: Colors.black, width: 4),
         ),
         child: const Icon(
           Icons.add_rounded,
-          color: PulseColors.textPrimary,
-          size: 28,
+          color: Colors.black,
+          size: 24,
         ),
       ),
     );

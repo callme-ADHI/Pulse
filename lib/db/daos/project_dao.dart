@@ -52,13 +52,7 @@ class ProjectDao extends DatabaseAccessor<PulseDatabase>
         .get();
   }
 
-  /// Projects that need decay recompute (not archived/deleted, no restriction on status).
-  Future<List<Project>> getProjectsForDecayJob() {
-    return (select(projects)
-          ..where((p) => p.isDeleted.equals(false))
-          ..where((p) => p.status.isNotIn(['archived'])))
-        .get();
-  }
+  // (getProjectsForDecayJob is defined at the bottom of this file — active-only)
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -112,5 +106,25 @@ class ProjectDao extends DatabaseAccessor<PulseDatabase>
     return (update(projects)..where((p) => p.id.equals(id))).write(
       ProjectsCompanion(status: Value(status)),
     );
+  }
+
+  Future<void> updateWeight(String id, double weight) {
+    return (update(projects)..where((p) => p.id.equals(id))).write(
+      ProjectsCompanion(weight: Value(weight)),
+    );
+  }
+
+  Future<void> updateEstimatedMinutes(String id, int? minutes) {
+    return (update(projects)..where((p) => p.id.equals(id))).write(
+      ProjectsCompanion(estimatedMinutes: Value(minutes)),
+    );
+  }
+
+  /// Projects that need decay recompute — active only (not paused, completed, archived).
+  Future<List<Project>> getProjectsForDecayJob() {
+    return (select(projects)
+          ..where((p) => p.isDeleted.equals(false))
+          ..where((p) => p.status.equals('active')))
+        .get();
   }
 }

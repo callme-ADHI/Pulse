@@ -53,7 +53,7 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
                 id: projectId,
                 name: p.name,
                 description: Value(p.description),
-                priority: Value(p.priority),
+                weight: const Value(1.0),
                 createdAt: DateTime.now(),
                 sourceImportId: Value(importId),
                 colorSeed: Value(projectId.substring(0, 6)),
@@ -186,7 +186,7 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
             icon: Icons.add_circle_outline_rounded,
             color: PulseColors.zoneActive,
             title: 'Will Create (${newProjects.length} projects)',
-            items: newProjects.map((p) => 'Project: ${p.name} [${p.priority}]').toList(),
+            items: newProjects.map((p) => 'Project: ${p.name}').toList(),
           ),
           if (linkedProjects.isNotEmpty) ...[
             const SizedBox(height: 16),

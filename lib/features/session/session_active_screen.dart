@@ -4,13 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:drift/drift.dart' hide Column;
 import '../../providers.dart';
-import '../../theme/colors.dart';
-import '../../theme/typography.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_text.dart';
+import '../../theme/app_dimensions.dart';
 import '../../engine/decay/decay_calculator.dart';
 
-/// Session Active screen — §7.4
-/// Full-screen timer, large monospace elapsed time, single Stop button.
-/// On stop: optional one-word tag + "next step" note saved as lastNote.
+/// Session Active screen — spec §6.3
+/// Full-screen black canvas. Large mono timer. Tag chips. Ghost Stop button.
 class SessionActiveScreen extends ConsumerStatefulWidget {
   const SessionActiveScreen({
     super.key,
@@ -31,7 +31,7 @@ class _SessionActiveScreenState extends ConsumerState<SessionActiveScreen> {
   DateTime? _startedAt;
   bool _stopping = false;
 
-  static const _tags = ['code', 'read', 'plan', 'design', 'review', 'debug'];
+  static const _tags = ['code', 'read', 'plan', 'design', 'research'];
 
   @override
   void initState() {
@@ -62,43 +62,47 @@ class _SessionActiveScreenState extends ConsumerState<SessionActiveScreen> {
   }
 
   String get _elapsedFormatted {
-    final h = _elapsed.inHours;
+    final h = _elapsed.inHours.toString().padLeft(2, '0');
     final m = (_elapsed.inMinutes % 60).toString().padLeft(2, '0');
     final s = (_elapsed.inSeconds % 60).toString().padLeft(2, '0');
-    return h > 0 ? '$h:$m:$s' : '$m:$s';
+    return '$h : $m : $s';
   }
 
   Future<void> _stop(BuildContext context) async {
     _timer?.cancel();
 
-    String? selectedTag;
-    String? nextNote;
-
-    // Show stop sheet
     final result = await showModalBottomSheet<Map<String, String?>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _StopSheet(tags: _tags),
+      builder: (_) => const StopSheet(),
     );
 
-    if (result != null) {
-      selectedTag = result['tag'];
-      nextNote = result['note'];
+    if (!mounted) return;
+    if (result == null) {
+      // User dismissed without stopping — restart timer
+      _startTimer();
+      return;
     }
 
-    if (!mounted) return;
     setState(() => _stopping = true);
-
     try {
       final now = DateTime.now();
       final duration = now.difference(_startedAt!).inSeconds;
       final sessionDao = ref.read(sessionDaoProvider);
       final projectDao = ref.read(projectDaoProvider);
 
-      await sessionDao.endSession(widget.sessionId, now, duration, selectedTag);
+      await sessionDao.endSession(
+        widget.sessionId,
+        now,
+        duration,
+        result['tag'],
+        stopReason: result['stopReason'],
+        stopNote: result['stopNote'],
+        nextStep: result['nextStep'],
+      );
 
-      // EMA update for avgGapDays
+      // EMA gap update
       final project = await projectDao.getProjectById(widget.projectId);
       if (project != null) {
         final gapDays = project.lastSessionAt != null
@@ -107,8 +111,9 @@ class _SessionActiveScreenState extends ConsumerState<SessionActiveScreen> {
         final newAvg = DecayCalculator.updateAvgGap(project.avgGapDays, gapDays);
         await projectDao.updateAvgGapDays(widget.projectId, newAvg);
         await projectDao.updateLastSessionAt(widget.projectId, now);
-        if (nextNote != null && nextNote.isNotEmpty) {
-          await projectDao.updateLastNote(widget.projectId, nextNote);
+        final nextStep = result['nextStep'];
+        if (nextStep != null && nextStep.isNotEmpty) {
+          await projectDao.updateLastNote(widget.projectId, nextStep);
         }
       }
 
@@ -120,98 +125,157 @@ class _SessionActiveScreenState extends ConsumerState<SessionActiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final projectAsync = ref.watch(projectByIdProvider(widget.projectId));
-    final projectName = projectAsync.valueOrNull?.name ?? '...';
+    final projectName = ref.watch(projectByIdProvider(widget.projectId)).valueOrNull?.name ?? '…';
 
     return Scaffold(
-      backgroundColor: PulseColors.background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            // Top bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                children: [
-                  Text(projectName, style: PulseTypography.titleSmall.copyWith(color: PulseColors.textSecondary)),
-                  const Spacer(),
-                  // Live indicator
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: PulseColors.zoneActiveBg,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: PulseColors.zoneActive.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: PulseColors.zoneActive, shape: BoxShape.circle)),
-                        const SizedBox(width: 5),
-                        Text('Live', style: PulseTypography.labelSmall.copyWith(color: PulseColors.zoneActive)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Timer
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(_elapsedFormatted, style: PulseTypography.monoDisplay.copyWith(fontSize: 64, fontWeight: FontWeight.w200)),
-                    const SizedBox(height: 8),
-                    Text('elapsed', style: PulseTypography.labelMedium),
-                  ],
-                ),
-              ),
-            ),
-
-            // Stop button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(40, 0, 40, 48),
-              child: SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: _stopping
-                  ? const Center(child: CircularProgressIndicator(strokeWidth: 1.5, color: PulseColors.accent))
-                  : ElevatedButton(
-                      onPressed: () => _stop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: PulseColors.surface,
-                        foregroundColor: PulseColors.textPrimary,
-                        side: const BorderSide(color: PulseColors.border),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: Text('Stop Session', style: PulseTypography.titleSmall),
-                    ),
-              ),
-            ),
+            _topBar(projectName),
+            Expanded(child: _timerArea()),
+            _tagRow(),
+            _stopButton(),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _topBar(String name) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppDim.pad20, AppDim.pad16, AppDim.pad20, 0),
+      child: Row(
+        children: [
+          Text(
+            'AEVORAX · PULSE',
+            style: AppText.label().copyWith(color: AppColors.textMuted),
+          ),
+          const Spacer(),
+          Text(
+            name,
+            style: AppText.label().copyWith(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _timerArea() {
+    return Center(
+      child: Text(
+        _elapsedFormatted,
+        style: AppText.monoTimer(),
+      ),
+    );
+  }
+
+  Widget _tagRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppDim.pad20, vertical: AppDim.pad16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: _tags.map((t) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDim.pad4),
+          child: _TagChip(label: t),
+        )).toList(),
+      ),
+    );
+  }
+
+  Widget _stopButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppDim.pad20, 0, AppDim.pad20, AppDim.pad28,
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: _stopping
+            ? const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: AppColors.gold,
+                ),
+              )
+            : OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.borderDefault),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppDim.radiusBtn),
+                  ),
+                ),
+                onPressed: () => _stop(context),
+                child: Text('Stop Session', style: AppText.titleSmall()),
+              ),
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatefulWidget {
+  const _TagChip({required this.label});
+  final String label;
+
+  @override
+  State<_TagChip> createState() => _TagChipState();
+}
+
+class _TagChipState extends State<_TagChip> {
+  bool _selected = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => setState(() => _selected = !_selected),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: _selected ? AppColors.goldDeep.withValues(alpha: 0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppDim.radiusBtn),
+          border: Border.all(
+            color: _selected ? AppColors.gold : AppColors.borderDefault,
+          ),
+        ),
+        child: Text(
+          widget.label,
+          style: AppText.body().copyWith(
+            fontSize: 12,
+            color: _selected ? AppColors.gold : AppColors.textSecondary,
+          ),
         ),
       ),
     );
   }
 }
 
-class _StopSheet extends StatefulWidget {
-  const _StopSheet({required this.tags});
-  final List<String> tags;
+/// Stop Sheet — spec §6.3
+/// Bottom sheet with: stop reason radio group + next step text field.
+class StopSheet extends StatefulWidget {
+  const StopSheet({super.key});
 
   @override
-  State<_StopSheet> createState() => _StopSheetState();
+  State<StopSheet> createState() => _StopSheetState();
 }
 
-class _StopSheetState extends State<_StopSheet> {
-  String? _selectedTag;
-  final _noteController = TextEditingController();
+class _StopSheetState extends State<StopSheet> {
+  String? _stopReason;
+  final _nextStepCtrl = TextEditingController();
+
+  static const _reasons = [
+    ('completed_goal', 'Completed my goal for today'),
+    ('got_blocked', 'Got blocked'),
+    ('ran_out_of_time', 'Ran out of time'),
+    ('lost_focus', 'Lost focus'),
+    ('external_interrupt', 'External interrupt'),
+    ('other', 'Other'),
+  ];
 
   @override
   void dispose() {
-    _noteController.dispose();
+    _nextStepCtrl.dispose();
     super.dispose();
   }
 
@@ -219,59 +283,125 @@ class _StopSheetState extends State<_StopSheet> {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: PulseColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        color: AppColors.surface2,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppDim.radiusCard)),
       ),
-      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 32),
+      padding: EdgeInsets.fromLTRB(
+        AppDim.pad20, AppDim.pad16, AppDim.pad20,
+        MediaQuery.of(context).viewInsets.bottom + AppDim.pad28,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(child: Container(width: 36, height: 3, decoration: BoxDecoration(color: PulseColors.border, borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 20),
-          Text('SESSION WRAP', style: PulseTypography.labelSmall.copyWith(color: PulseColors.textTertiary, letterSpacing: 1.5)),
-          const SizedBox(height: 16),
-          Text('What were you doing?', style: PulseTypography.titleSmall),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: widget.tags.map((tag) {
-              final sel = _selectedTag == tag;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedTag = sel ? null : tag),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: sel ? PulseColors.accentDim : PulseColors.surfaceElevated,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: sel ? PulseColors.accent.withOpacity(0.5) : PulseColors.border),
-                  ),
-                  child: Text(tag, style: PulseTypography.bodySmall.copyWith(color: sel ? PulseColors.accent : PulseColors.textSecondary)),
-                ),
-              );
-            }).toList(),
+          // Handle
+          Center(
+            child: Container(
+              width: 36, height: 3,
+              decoration: BoxDecoration(
+                color: AppColors.borderStrong,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
           ),
-          const SizedBox(height: 20),
-          Text('What\'s next?', style: PulseTypography.titleSmall),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppDim.pad20),
+          Text('Why are you stopping?', style: AppText.title()),
+          const SizedBox(height: AppDim.pad12),
+          ..._reasons.map((r) => _ReasonRow(
+            value: r.$1,
+            label: r.$2,
+            selected: _stopReason == r.$1,
+            onTap: () => setState(() => _stopReason = r.$1),
+          )),
+          const SizedBox(height: AppDim.pad20),
+          Text('Next step (optional)', style: AppText.titleSmall()),
+          const SizedBox(height: AppDim.pad8),
           TextField(
-            controller: _noteController,
+            controller: _nextStepCtrl,
+            style: AppText.bodyWhite(),
             maxLines: 2,
-            style: PulseTypography.bodyMedium,
-            decoration: const InputDecoration(hintText: 'One sentence — where to re-enter next time'),
+            decoration: InputDecoration(
+              hintText: 'What do I pick up next time?',
+              hintStyle: AppText.body(),
+              filled: true,
+              fillColor: AppColors.surface3,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppDim.radiusInput),
+                borderSide: const BorderSide(color: AppColors.borderDefault),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppDim.radiusInput),
+                borderSide: const BorderSide(color: AppColors.borderDefault),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppDim.radiusInput),
+                borderSide: const BorderSide(color: AppColors.borderStrong, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.all(AppDim.pad12),
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppDim.pad20),
           SizedBox(
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: () => Navigator.of(context).pop({'tag': _selectedTag, 'note': _noteController.text.trim()}),
-              child: const Text('Done'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDim.radiusBtn),
+                ),
+              ),
+              onPressed: () => Navigator.of(context).pop({
+                'stopReason': _stopReason,
+                'nextStep': _nextStepCtrl.text.trim(),
+              }),
+              child: Text('Confirm Stop', style: AppText.titleSmall().copyWith(color: Colors.black)),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReasonRow extends StatelessWidget {
+  const _ReasonRow({
+    required this.value,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String value;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Container(
+              width: 18, height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? AppColors.gold : AppColors.borderStrong,
+                  width: selected ? 5 : 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppDim.pad12),
+            Text(label, style: AppText.body().copyWith(
+              color: selected ? AppColors.textPrimary : AppColors.textSecondary,
+            )),
+          ],
+        ),
       ),
     );
   }

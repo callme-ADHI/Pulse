@@ -25,7 +25,7 @@ dependencies:
   go_router: ^15.1.2
 
   # Graph rendering
-  graphview: ^1.2.0
+  flutter_graph_view: ^2.1.0
 
   # YAML parsing
   yaml: ^3.1.3

@@ -1,376 +1,372 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../db/database.dart';
-import '../../providers.dart';
-import '../../theme/colors.dart';
-import '../../theme/typography.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_text.dart';
+import '../../theme/app_dimensions.dart';
 import '../../widgets/zone_badge.dart';
+import 'home_providers.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final projectsAsync = ref.watch(enrichedProjectsProvider);
+    final liveAsync     = ref.watch(liveSessionProvider);
+
     return Scaffold(
-      backgroundColor: PulseColors.background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(context),
-            const SizedBox(height: 16),
-            const Expanded(child: HomeListView()),
+            // ── App bar ──────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('PULSE', style: AppText.display().copyWith(fontSize: 22)),
+                      Text('BY AEVORAX',
+                        style: AppText.label().copyWith(color: AppColors.gold, letterSpacing: 2)),
+                    ],
+                  ),
+                  const Spacer(),
+                  // Live session chip
+                  liveAsync.when(
+                    data: (s) => s != null
+                        ? GestureDetector(
+                            onTap: () => context.push(
+                                '/session/${s.projectId}?sessionId=${s.id}'),
+                            child: _LiveChip(session: s))
+                        : const SizedBox.shrink(),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => context.push('/new-project'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.borderStrong),
+                        borderRadius: BorderRadius.circular(AppDim.radiusBtn),
+                      ),
+                      child: Text('+ New',
+                        style: AppText.label().copyWith(color: AppColors.textSecondary)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // ── List ──────────────────────────────────────────────────────
+            Expanded(
+              child: projectsAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5, color: AppColors.gold)),
+                error: (e, _) =>
+                    Center(child: Text('Error: $e', style: AppText.body())),
+                data: (list) {
+                  final active = list.where((p) => p.project.status == 'active').toList();
+                  final paused = list.where((p) => p.project.status == 'paused').toList();
+
+                  if (list.isEmpty) return const _EmptyState();
+
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+                    children: [
+                      ...active.map((p) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: ProjectCard(item: p),
+                      )),
+                      if (paused.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _PausedSection(projects: paused),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Spec §6.1 project card layout.
+class ProjectCard extends ConsumerWidget {
+  const ProjectCard({required this.item, super.key});
+  final ProjectWithDecay item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p     = item.project;
+    final score = item.score;
+    final zone  = item.zone;
+
+    return GestureDetector(
+      onTap: () => context.push('/project/${p.id}'),
+      child: Container(
+        padding: const EdgeInsets.all(AppDim.cardPad),
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: BorderRadius.circular(AppDim.radiusCard),
+          border: Border.all(color: AppColors.borderDefault),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Row 1: name + zone pill
+            Row(
+              children: [
+                Expanded(
+                  child: Text(p.name,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                ),
+                const SizedBox(width: 8),
+                ZoneBadge(zone: zone),
+              ],
+            ),
+            // Row 2: last note / next step
+            if (p.lastNote?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 4),
+              Text('↳ ${p.lastNote}',
+                style: GoogleFonts.dmSans(
+                  fontSize: 12,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.textMuted,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            ],
+            const SizedBox(height: 14),
+            // Row 3: score + since label + Start button
+            Row(
+              children: [
+                Text(
+                  score.toInt().toString(),
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.zoneFg(zone),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _sinceLabel(p.lastSessionAt),
+                    style: AppText.label(),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    final notifier =
+                        ref.read(sessionNotifierProvider.notifier);
+                    final sessionId = await notifier.startSession(p.id);
+                    if (sessionId != null && context.mounted) {
+                      context.push(
+                          '/session/${p.id}?sessionId=$sessionId');
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface2,
+                      border: Border.all(color: AppColors.borderStrong),
+                      borderRadius: BorderRadius.circular(AppDim.radiusBtn),
+                    ),
+                    child: Text('▶  Start',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                      )),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'PULSE',
-                style: PulseTypography.displayMedium.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'BY AEVORAX',
-                style: PulseTypography.labelSmall.copyWith(
-                  color: PulseColors.accent,
-                  fontSize: 10,
-                  letterSpacing: 2.0,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            onPressed: () => context.pushNamed('weeklyReport'),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.bar_chart_rounded, size: 16, color: Colors.white),
-                const SizedBox(width: 6),
-                Text(
-                  'Report',
-                  style: PulseTypography.titleSmall.copyWith(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  String _sinceLabel(DateTime? dt) {
+    if (dt == null) return 'No sessions yet';
+    final d = DateTime.now().difference(dt).inDays;
+    if (d == 0) return 'Today';
+    if (d == 1) return '1d ago';
+    return '${d}d ago';
   }
 }
 
-// ── Home List View ─────────────────────────────────────────────────────────────
-
-class HomeListView extends ConsumerWidget {
-  const HomeListView({super.key});
-
-  List<Project> _sortProjects(List<Project> projects, WidgetRef ref) {
-    // Sort projects: we can sort by decay score descending (critical first)
-    final sorted = [...projects];
-    sorted.sort((a, b) {
-      final aLog = ref.read(decayLogsProvider(a.id)).valueOrNull?.lastOrNull;
-      final bLog = ref.read(decayLogsProvider(b.id)).valueOrNull?.lastOrNull;
-      final aScore = aLog?.score ?? 0.0;
-      final bScore = bLog?.score ?? 0.0;
-      return bScore.compareTo(aScore); // highest score (critical) first
-    });
-    return sorted;
-  }
+/// Collapsed paused section with count badge.
+class _PausedSection extends StatefulWidget {
+  const _PausedSection({required this.projects});
+  final List<ProjectWithDecay> projects;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final projectsAsync = ref.watch(homeProjectsProvider);
-
-    return projectsAsync.when(
-      loading: () => const Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 1.5,
-          color: PulseColors.accent,
-        ),
-      ),
-      error: (e, _) => Center(
-        child: Text('Error: $e', style: PulseTypography.bodySmall),
-      ),
-      data: (projects) {
-        if (projects.isEmpty) {
-          return _EmptyState();
-        }
-        final sorted = _sortProjects(projects, ref);
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-          itemCount: sorted.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) =>
-              _ProjectRow(project: sorted[index]),
-        );
-      },
-    );
-  }
+  State<_PausedSection> createState() => _PausedSectionState();
 }
 
-class _ProjectRow extends ConsumerWidget {
-  const _ProjectRow({required this.project});
-  final Project project;
-
-  String _relativeTime(DateTime? dt) {
-    if (dt == null) return 'Never started';
-    final diff = DateTime.now().difference(dt);
-    if (diff.inDays >= 1) return '${diff.inDays}d since last session';
-    if (diff.inHours >= 1) return '${diff.inHours}h since last session';
-    return 'Session just completed';
-  }
+class _PausedSectionState extends State<_PausedSection> {
+  bool _expanded = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Get latest decay log for zone color & score
-    final latestLogAsync = ref.watch(decayLogsProvider(project.id));
-    final latestLog = latestLogAsync.valueOrNull?.isNotEmpty == true
-        ? latestLogAsync.valueOrNull!.last
-        : null;
-    final zone = latestLog?.zone ?? 'active';
-    final score = latestLog?.score ?? 0.0;
-
-    return GestureDetector(
-      onTap: () => context.pushNamed(
-        'projectDetail',
-        pathParameters: {'id': project.id},
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: PulseColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: PulseColors.surfaceOverlay,
-            width: 1,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      project.name,
-                      style: PulseTypography.titleMedium.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ZoneBadge(zone: zone),
-                ],
-              ),
-              if (project.description != null && project.description!.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  project.description!,
-                  style: PulseTypography.bodySmall.copyWith(
-                    color: PulseColors.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            'Score: ',
-                            style: PulseTypography.bodySmall.copyWith(
-                              color: PulseColors.textSecondary,
-                            ),
-                          ),
-                          Text(
-                            '${score.toInt()}',
-                            style: PulseTypography.monoLarge.copyWith(
-                              color: PulseColors.forZone(zone),
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _relativeTime(project.lastSessionAt),
-                        style: PulseTypography.bodySmall.copyWith(
-                          color: PulseColors.textSecondary,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                  _StartSessionButton(project: project),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StartSessionButton extends ConsumerWidget {
-  const _StartSessionButton({required this.project});
-  final Project project;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final activeSession = ref.watch(activeSessionProvider).valueOrNull;
-    final isThisProject = activeSession?.projectId == project.id;
-    final hasAnyActive = activeSession != null;
-
-    if (isThisProject) {
-      return GestureDetector(
-        onTap: () => context.pushNamed(
-          'sessionActive',
-          pathParameters: {'projectId': project.id},
-          queryParameters: {'sessionId': activeSession!.id},
-        ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: PulseColors.zoneActiveBg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: PulseColors.zoneActive.withValues(alpha: 0.3)),
-          ),
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          behavior: HitTestBehavior.opaque,
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: PulseColors.zoneActive,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              Text('Paused · ${widget.projects.length}',
+                style: AppText.label().copyWith(color: AppColors.textSecondary)),
               const SizedBox(width: 6),
-              Text(
-                'LIVE',
-                style: PulseTypography.labelSmall.copyWith(
-                  color: PulseColors.zoneActive,
-                  fontWeight: FontWeight.w700,
-                ),
+              Icon(
+                _expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                size: 16,
+                color: AppColors.textMuted,
               ),
             ],
           ),
         ),
-      );
-    }
+        if (_expanded) ...[
+          const SizedBox(height: 8),
+          ...widget.projects.map((p) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ProjectCard(item: p),
+          )),
+        ],
+      ],
+    );
+  }
+}
 
-    return OutlinedButton(
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        foregroundColor: Colors.white,
-        side: const BorderSide(color: Color(0xFF222222), width: 1),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+class _LiveChip extends StatefulWidget {
+  const _LiveChip({required this.session});
+  final Session session;
+
+  @override
+  State<_LiveChip> createState() => _LiveChipState();
+}
+
+class _LiveChipState extends State<_LiveChip> {
+  late Timer _t;
+  Duration _elapsed = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _elapsed = DateTime.now().difference(widget.session.startedAt);
+    _t = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() =>
+            _elapsed = DateTime.now().difference(widget.session.startedAt));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _t.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = _elapsed.inHours.toString().padLeft(2, '0');
+    final m = (_elapsed.inMinutes % 60).toString().padLeft(2, '0');
+    final s = (_elapsed.inSeconds % 60).toString().padLeft(2, '0');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.surface2,
+        border: Border.all(color: AppColors.zoneActiveFg),
+        borderRadius: BorderRadius.circular(AppDim.radiusPill),
       ),
-      onPressed: hasAnyActive ? null : () => _startSession(context, ref),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
-          const SizedBox(width: 4),
-          Text(
-            'Start',
-            style: PulseTypography.titleSmall.copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+          Container(
+            width: 6, height: 6,
+            decoration: const BoxDecoration(
+              color: AppColors.zoneActiveFg, shape: BoxShape.circle),
           ),
+          const SizedBox(width: 6),
+          Text('$h:$m:$s',
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 11, color: AppColors.textPrimary)),
         ],
       ),
     );
-  }
-
-  Future<void> _startSession(BuildContext context, WidgetRef ref) async {
-    final sessionDao = ref.read(sessionDaoProvider);
-    const uuid = _UuidHelper();
-    final sessionId = uuid.v4();
-    final now = DateTime.now();
-
-    await sessionDao.startSession(
-      SessionsCompanion.insert(
-        id: sessionId,
-        projectId: project.id,
-        startedAt: now,
-      ),
-    );
-
-    if (context.mounted) {
-      context.pushNamed(
-        'sessionActive',
-        pathParameters: {'projectId': project.id},
-        queryParameters: {'sessionId': sessionId},
-      );
-    }
-  }
-}
-
-class _UuidHelper {
-  const _UuidHelper();
-  String v4() {
-    return DateTime.now().microsecondsSinceEpoch.toString();
   }
 }
 
 class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'NO PROJECTS YET',
-            style: PulseTypography.labelSmall.copyWith(
-              color: PulseColors.textSecondary,
-              letterSpacing: 1.5,
-            ),
-          ),
+          Text('No projects yet', style: AppText.body()),
           const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => context.pushNamed('newProject'),
-            child: const Text('New Project'),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _Btn(label: 'New project', onTap: () => context.push('/new-project')),
+              const SizedBox(width: 10),
+              _Btn(label: 'Paste YAML', gold: true, onTap: () => context.push('/import')),
+            ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _Btn extends StatelessWidget {
+  const _Btn({required this.label, required this.onTap, this.gold = false});
+  final String label;
+  final VoidCallback onTap;
+  final bool gold;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: gold ? AppColors.gold : Colors.transparent,
+          border: Border.all(color: gold ? AppColors.gold : AppColors.borderStrong),
+          borderRadius: BorderRadius.circular(AppDim.radiusBtn),
+        ),
+        child: Text(label,
+          style: GoogleFonts.dmSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: gold ? AppColors.background : AppColors.textPrimary)),
       ),
     );
   }

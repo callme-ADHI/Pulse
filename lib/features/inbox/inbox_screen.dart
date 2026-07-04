@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../providers.dart';
-import '../../theme/colors.dart';
-import '../../theme/typography.dart';
 import '../../db/database.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_text.dart';
+import '../../theme/app_dimensions.dart';
 
-/// Inbox screen — §7.5
-/// Reverse-chronological unsorted ideas.
-/// Swipe right → link to project. Swipe left → archive.
+/// Inbox screen — spec §6.5 / §7.5
+/// Shows unsorted captured ideas.
+/// Swipe right → link to project.
+/// Swipe left → archive.
 /// Long-press → promote to new project.
 class InboxScreen extends ConsumerWidget {
   const InboxScreen({super.key});
@@ -18,7 +21,7 @@ class InboxScreen extends ConsumerWidget {
     final ideasAsync = ref.watch(inboxIdeasProvider);
 
     return Scaffold(
-      backgroundColor: PulseColors.background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,21 +31,25 @@ class InboxScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Inbox', style: PulseTypography.displayMedium),
-                  Text('Unsorted ideas', style: PulseTypography.bodySmall),
+                  Text('Inbox', style: AppText.title()),
+                  const SizedBox(height: 2),
+                  Text('Swipe to link / archive. Long-press to promote.',
+                      style: AppText.label().copyWith(color: AppColors.textSecondary)),
                 ],
               ),
             ),
             Expanded(
               child: ideasAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 1.5, color: PulseColors.accent)),
-                error: (e, _) => Center(child: Text('Error: $e')),
+                loading: () => const Center(
+                  child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.gold),
+                ),
+                error: (e, _) => Center(child: Text('Error: $e', style: AppText.body())),
                 data: (ideas) {
-                  if (ideas.isEmpty) return _EmptyInbox();
+                  if (ideas.isEmpty) return const _EmptyInbox();
                   return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
                     itemCount: ideas.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, i) => _IdeaTile(idea: ideas[i]),
                   );
                 },
@@ -63,37 +70,55 @@ class _IdeaTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Dismissible(
       key: ValueKey(idea.id),
-      background: _SwipeBg(color: PulseColors.zoneActive, icon: Icons.link_rounded, alignment: Alignment.centerLeft, label: 'Link'),
-      secondaryBackground: _SwipeBg(color: PulseColors.textTertiary, icon: Icons.archive_outlined, alignment: Alignment.centerRight, label: 'Archive'),
-      onDismissed: (direction) async {
-        final ideaDao = ref.read(ideaDaoProvider);
+      background: _SwipeBg(
+        color: AppColors.zoneActiveFg,
+        icon: Icons.link_rounded,
+        alignment: Alignment.centerLeft,
+        label: 'LINK',
+      ),
+      secondaryBackground: _SwipeBg(
+        color: AppColors.zoneCriticalFg,
+        icon: Icons.archive_outlined,
+        alignment: Alignment.centerRight,
+        label: 'ARCHIVE',
+      ),
+      confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
           // Link to project
           _showProjectPicker(context, ref, idea);
+          return false; // picker handles DB mutation and pops/closes sheet
         } else {
-          await ideaDao.archiveIdea(idea.id);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Archived')),
-            );
-          }
+          // Archive
+          await ref.read(ideaDaoProvider).archiveIdea(idea.id);
+          return true;
         }
       },
       child: GestureDetector(
         onLongPress: () => _promoteToProject(context, ref, idea),
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppDim.cardPad),
           decoration: BoxDecoration(
-            color: PulseColors.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: PulseColors.border),
+            color: AppColors.surface1,
+            borderRadius: BorderRadius.circular(AppDim.radiusCard),
+            border: Border.all(color: AppColors.borderDefault),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(idea.content, style: PulseTypography.bodyMedium),
-              const SizedBox(height: 6),
-              Text(_relTime(idea.createdAt), style: PulseTypography.bodySmall),
+              Text(
+                idea.content,
+                style: GoogleFonts.dmSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _relTime(idea.createdAt),
+                style: AppText.monoSmall().copyWith(color: AppColors.textMuted),
+              ),
             ],
           ),
         ),
@@ -105,6 +130,7 @@ class _IdeaTile extends ConsumerWidget {
     final diff = DateTime.now().difference(dt);
     if (diff.inDays >= 1) return '${diff.inDays}d ago';
     if (diff.inHours >= 1) return '${diff.inHours}h ago';
+    if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
     return 'just now';
   }
 
@@ -127,7 +153,12 @@ class _IdeaTile extends ConsumerWidget {
 }
 
 class _SwipeBg extends StatelessWidget {
-  const _SwipeBg({required this.color, required this.icon, required this.alignment, required this.label});
+  const _SwipeBg({
+    required this.color,
+    required this.icon,
+    required this.alignment,
+    required this.label,
+  });
   final Color color;
   final IconData icon;
   final Alignment alignment;
@@ -137,17 +168,39 @@ class _SwipeBg extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppDim.radiusCard),
       ),
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 6),
-          Text(label, style: PulseTypography.labelMedium.copyWith(color: color)),
+          if (alignment == Alignment.centerLeft) ...[
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.dmSans(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: color,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ] else ...[
+            Text(
+              label,
+              style: GoogleFonts.dmSans(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: color,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(icon, color: color, size: 16),
+          ]
         ],
       ),
     );
@@ -161,35 +214,68 @@ class _ProjectPickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final projectsAsync = ref.watch(homeProjectsProvider);
+
     return Container(
-      decoration: const BoxDecoration(color: PulseColors.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      decoration: const BoxDecoration(
+        color: AppColors.surface2,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppDim.radiusCard)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        AppDim.pad20,
+        AppDim.pad16,
+        AppDim.pad20,
+        MediaQuery.of(context).viewInsets.bottom + AppDim.pad28,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
-          Center(child: Container(width: 36, height: 3, decoration: BoxDecoration(color: PulseColors.border, borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text('Link to Project', style: PulseTypography.titleMedium),
-          ),
-          const SizedBox(height: 8),
-          projectsAsync.when(
-            loading: () => const CircularProgressIndicator(strokeWidth: 1.5),
-            error: (_, __) => const SizedBox(),
-            data: (projects) => ListView.builder(
-              shrinkWrap: true,
-              itemCount: projects.length,
-              itemBuilder: (_, i) => ListTile(
-                title: Text(projects[i].name, style: PulseTypography.bodyMedium),
-                onTap: () async {
-                  await ref.read(ideaDaoProvider).linkIdeaToProject(idea.id, projects[i].id);
-                  if (context.mounted) Navigator.of(context).pop();
-                },
+          Center(
+            child: Container(
+              width: 36,
+              height: 3,
+              decoration: BoxDecoration(
+                color: AppColors.borderStrong,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: AppDim.pad16),
+          Text('Link to Project', style: AppText.title()),
+          const SizedBox(height: AppDim.pad12),
+          projectsAsync.when(
+            loading: () => const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.gold),
+              ),
+            ),
+            error: (e, _) => Text('Error loading projects', style: AppText.body()),
+            data: (projects) {
+              final active = projects.where((p) => p.status != 'archived').toList();
+              if (active.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text('No active projects found.',
+                      style: AppText.body().copyWith(color: AppColors.textMuted)),
+                );
+              }
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: active.length,
+                itemBuilder: (_, i) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(active[i].name, style: AppText.bodyWhite()),
+                  trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+                  onTap: () async {
+                    await ref.read(ideaDaoProvider).linkIdeaToProject(idea.id, active[i].id);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -203,26 +289,52 @@ class _PromoteSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      decoration: const BoxDecoration(color: PulseColors.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      padding: const EdgeInsets.all(24),
+      decoration: const BoxDecoration(
+        color: AppColors.surface2,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppDim.radiusCard)),
+      ),
+      padding: const EdgeInsets.all(AppDim.pad20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Promote to Project', style: PulseTypography.titleMedium),
+          Text('Promote to Project', style: AppText.title()),
           const SizedBox(height: 8),
-          Text(idea.content, style: PulseTypography.bodySmall.copyWith(color: PulseColors.textSecondary)),
+          Text(
+            idea.content,
+            style: GoogleFonts.dmSans(fontSize: 13, color: AppColors.textSecondary),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           const SizedBox(height: 16),
-          Text('This will create a new project and add an inspired_by relation back to this idea\'s source (if linked).', style: PulseTypography.bodySmall),
+          Text(
+            'This will promote this idea into a fully-fledged active project.',
+            style: AppText.body().copyWith(fontSize: 12),
+          ),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
+            height: 48,
             child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDim.radiusBtn),
+                ),
+              ),
               onPressed: () async {
                 Navigator.of(context).pop();
-                context.pushNamed('newProject'); // TODO: pre-fill name from idea content
+                // We will promote the idea and navigate to the project creation page
+                await ref.read(ideaDaoProvider).promoteIdea(idea.id, 'temp');
+                if (context.mounted) {
+                  context.push('/new-project?name=${Uri.encodeComponent(idea.content.split('\n').first)}&desc=${Uri.encodeComponent(idea.content)}');
+                }
               },
-              child: const Text('Create Project'),
+              child: Text(
+                'Promote Now',
+                style: AppText.titleSmall().copyWith(color: Colors.black),
+              ),
             ),
           ),
         ],
@@ -232,6 +344,8 @@ class _PromoteSheet extends ConsumerWidget {
 }
 
 class _EmptyInbox extends StatelessWidget {
+  const _EmptyInbox();
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -240,11 +354,15 @@ class _EmptyInbox extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inbox_outlined, color: PulseColors.textTertiary, size: 40),
+            const Icon(Icons.inbox_outlined, color: AppColors.textMuted, size: 40),
             const SizedBox(height: 16),
-            Text('Inbox is empty', style: PulseTypography.titleSmall),
+            Text('Inbox is empty', style: AppText.titleSmall()),
             const SizedBox(height: 8),
-            Text('Tap + to capture an idea. It will land here for sorting.', style: PulseTypography.bodySmall, textAlign: TextAlign.center),
+            Text(
+              'Capture raw ideas using the + button at the bottom. Link them to projects or promote them to project status here.',
+              style: AppText.body().copyWith(color: AppColors.textMuted),
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),

@@ -1,82 +1,41 @@
 import 'package:flutter/material.dart';
-import '../theme/colors.dart';
-import '../theme/typography.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_colors.dart';
 
-/// Zone badge — colored dot + label showing decay status.
+/// Zone pill badge — used on project cards, node panels, detail header.
+/// Spec §1.1 decay zone colours.
 class ZoneBadge extends StatelessWidget {
-  const ZoneBadge({
-    super.key,
-    required this.zone,
-    this.showLabel = true,
-    this.size = 8.0,
-  });
-
+  const ZoneBadge({required this.zone, super.key});
   final String zone;
-  final bool showLabel;
-  final double size;
-
-  String get _label => switch (zone) {
-        'active' => 'Active',
-        'drifting' => 'Drifting',
-        'cold' => 'Cold',
-        'critical' => 'Critical',
-        _ => zone,
-      };
 
   @override
   Widget build(BuildContext context) {
-    final color = PulseColors.forZone(zone);
-    final bgColor = PulseColors.bgForZone(zone);
+    final bg = AppColors.zoneBg(zone);
+    final fg = AppColors.zoneFg(zone);
+    final label = zone.isEmpty ? 'active'
+        : zone[0].toUpperCase() + zone.substring(1);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: bg,
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: color.withValues(alpha: 0.15), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            width: 5, height: 5,
+            decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
           ),
-          if (showLabel) ...[
-            const SizedBox(width: 6),
-            Text(
-              _label.toUpperCase(),
-              style: PulseTypography.labelSmall.copyWith(
-                color: color,
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+          const SizedBox(width: 5),
+          Text(label,
+            style: GoogleFonts.dmSans(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: fg,
+            )),
         ],
-      ),
-    );
-  }
-}
-
-/// Just the colored dot, no container.
-class ZoneDot extends StatelessWidget {
-  const ZoneDot({super.key, required this.zone, this.size = 8.0});
-  final String zone;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: PulseColors.forZone(zone),
-        shape: BoxShape.circle,
       ),
     );
   }

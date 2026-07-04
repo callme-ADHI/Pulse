@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'features/home/home_screen.dart';
+import 'features/map/map_screen.dart';
 import 'features/project_detail/project_detail_screen.dart';
 import 'features/session/session_active_screen.dart';
 import 'features/inbox/inbox_screen.dart';
@@ -9,7 +10,6 @@ import 'features/import/import_preview_screen.dart';
 import 'features/weekly_report/weekly_report_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/import_history_screen.dart';
-import 'features/graph/graph_screen.dart';
 import 'widgets/nav_bar.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -26,7 +26,7 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/map',
           name: 'map',
-          builder: (context, state) => const GraphScreen(),
+          builder: (context, state) => const MapScreen(),
         ),
         GoRoute(
           path: '/inbox',
@@ -65,7 +65,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/new-project',
       name: 'newProject',
-      builder: (context, state) => const NewProjectScreen(),
+      builder: (context, state) => NewProjectScreen(
+        initialName: state.uri.queryParameters['name'],
+        initialDescription: state.uri.queryParameters['desc'],
+      ),
     ),
     GoRoute(
       path: '/import',

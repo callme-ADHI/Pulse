@@ -12,7 +12,7 @@ void main() async {
   await initNotifications();
 
   // Initialize WorkManager with our decay job dispatcher
-  await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+  await Workmanager().initialize(callbackDispatcher);
 
   // Register periodic decay job
   await registerDecayJob();

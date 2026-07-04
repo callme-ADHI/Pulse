@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../db/database.dart';
-import '../theme/colors.dart';
-import '../theme/typography.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text.dart';
 import '../providers.dart';
 
 /// 30-day decay history line chart for Project Detail.
-/// Uses fl_chart. Decay score is NOT shown as progress bar (§8) — it's
-/// rendered as a number tick, and this chart shows the historical line.
 class DecayChart extends ConsumerWidget {
   const DecayChart({super.key, required this.projectId});
   final String projectId;
@@ -23,7 +22,7 @@ class DecayChart extends ConsumerWidget {
         child: Center(
           child: CircularProgressIndicator(
             strokeWidth: 1.5,
-            color: PulseColors.accent,
+            color: AppColors.gold,
           ),
         ),
       ),
@@ -32,7 +31,7 @@ class DecayChart extends ConsumerWidget {
         child: Center(
           child: Text(
             'Chart unavailable',
-            style: PulseTypography.bodySmall,
+            style: AppText.body().copyWith(color: AppColors.textMuted),
           ),
         ),
       ),
@@ -43,7 +42,7 @@ class DecayChart extends ConsumerWidget {
             child: Center(
               child: Text(
                 'No decay history yet',
-                style: PulseTypography.bodySmall,
+                style: AppText.body().copyWith(color: AppColors.textMuted),
               ),
             ),
           );
@@ -64,8 +63,7 @@ class _Chart extends StatelessWidget {
       return FlSpot(e.key.toDouble(), e.value.score);
     }).toList();
 
-    // Color gradient based on current score
-    final lineColor = PulseColors.forZone(logs.last.zone);
+    final lineColor = AppColors.zoneFg(logs.last.zone);
 
     return SizedBox(
       height: 120,
@@ -79,7 +77,7 @@ class _Chart extends StatelessWidget {
             drawVerticalLine: false,
             horizontalInterval: 25,
             getDrawingHorizontalLine: (_) => const FlLine(
-              color: PulseColors.border,
+              color: AppColors.borderDefault,
               strokeWidth: 0.5,
             ),
           ),
@@ -92,7 +90,11 @@ class _Chart extends StatelessWidget {
                 reservedSize: 28,
                 getTitlesWidget: (value, _) => Text(
                   value.toInt().toString(),
-                  style: PulseTypography.monoSmall.copyWith(fontSize: 10),
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ),
             ),
@@ -106,24 +108,23 @@ class _Chart extends StatelessWidget {
               sideTitles: SideTitles(showTitles: false),
             ),
           ),
-          // Zone threshold reference lines
           extraLinesData: ExtraLinesData(
             horizontalLines: [
               HorizontalLine(
                 y: 30,
-                color: PulseColors.zoneDrifting.withOpacity(0.3),
+                color: AppColors.zoneDriftingFg.withValues(alpha: 0.2),
                 strokeWidth: 1,
                 dashArray: [4, 4],
               ),
               HorizontalLine(
                 y: 55,
-                color: PulseColors.zoneCold.withOpacity(0.3),
+                color: AppColors.zoneColdFg.withValues(alpha: 0.2),
                 strokeWidth: 1,
                 dashArray: [4, 4],
               ),
               HorizontalLine(
                 y: 80,
-                color: PulseColors.zoneCritical.withOpacity(0.3),
+                color: AppColors.zoneCriticalFg.withValues(alpha: 0.2),
                 strokeWidth: 1,
                 dashArray: [4, 4],
               ),
@@ -150,8 +151,8 @@ class _Chart extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    lineColor.withOpacity(0.15),
-                    lineColor.withOpacity(0.0),
+                    lineColor.withValues(alpha: 0.15),
+                    lineColor.withValues(alpha: 0.0),
                   ],
                 ),
               ),
@@ -159,11 +160,13 @@ class _Chart extends StatelessWidget {
           ],
           lineTouchData: LineTouchData(
             touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (_) => PulseColors.surfaceElevated,
+              getTooltipColor: (_) => AppColors.surface3,
               getTooltipItems: (spots) => spots.map((s) {
                 return LineTooltipItem(
                   s.y.toStringAsFixed(1),
-                  PulseTypography.monoSmall.copyWith(
+                  GoogleFonts.jetBrainsMono(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
                     color: lineColor,
                   ),
                 );

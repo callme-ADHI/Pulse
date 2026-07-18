@@ -66,6 +66,10 @@ final inboxIdeasProvider = StreamProvider<List<Idea>>((ref) {
   return ref.watch(ideaDaoProvider).watchInboxIdeas();
 });
 
+final allIdeasProvider = StreamProvider<List<Idea>>((ref) {
+  return ref.watch(ideaDaoProvider).watchAll();
+});
+
 final allRelationsProvider = StreamProvider<List<Relation>>((ref) {
   return ref.watch(relationDaoProvider).watchAllRelations();
 });
@@ -118,4 +122,8 @@ final projectRelationsProvider =
 final decayLogsProvider =
     StreamProvider.family<List<DecayLog>, String>((ref, projectId) {
   return ref.watch(decayLogDaoProvider).watchLast30Days(projectId);
+});
+
+final ideaByIdProvider = StreamProvider.family<Idea?, String>((ref, ideaId) {
+  return ref.watch(ideaDaoProvider).watchIdeaById(ideaId);
 });

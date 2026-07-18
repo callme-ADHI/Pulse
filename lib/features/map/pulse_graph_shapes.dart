@@ -53,9 +53,10 @@ class PulseVertexShape extends VertexCircleShape {
     );
 
     // Decay score label
+    final labelText = zone == 'idea' ? 'I' : score.toInt().toString();
     final tp = TextPainter(
       text: TextSpan(
-        text: score.toInt().toString(),
+        text: labelText,
         style: GoogleFonts.jetBrainsMono(
           fontSize: (radius * 0.55).clamp(9.0, 18.0),
           fontWeight: FontWeight.w700,
@@ -93,6 +94,7 @@ class PulseVertexShape extends VertexCircleShape {
         'drifting' => AppColors.zoneDriftingBg,
         'cold'     => AppColors.zoneColdBg,
         'critical' => AppColors.zoneCriticalBg,
+        'idea'     => const Color(0xFF0F0F15),
         _          => AppColors.surface2,
       };
 
@@ -101,6 +103,7 @@ class PulseVertexShape extends VertexCircleShape {
         'drifting' => AppColors.zoneDriftingFg,
         'cold'     => AppColors.zoneColdFg,
         'critical' => AppColors.zoneCriticalFg,
+        'idea'     => AppColors.gold,
         _          => AppColors.textSecondary,
       };
 }

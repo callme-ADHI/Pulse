@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../theme/colors.dart';
-import '../../theme/typography.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_text.dart';
 
 /// Settings screen — §7.9
 class SettingsScreen extends ConsumerWidget {
@@ -15,6 +15,8 @@ project:
   name: "Your Project Name"
   description: "What you're building"
   priority: medium              # low | medium | high
+  startDate: "YYYY-MM-DD"       # Optional start date (ISO format)
+  endDate: "YYYY-MM-DD"         # Optional deadline / end date (ISO format)
   phases:
     - name: "Phase name"
       summary: "High-level milestone"
@@ -32,20 +34,26 @@ Keep phases to 3–6 high-level milestones. No task-level detail. No checkboxes.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: PulseColors.background,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: Text('Settings', style: PulseTypography.displayMedium),
+              child: Text('Settings', style: AppText.display().copyWith(fontSize: 26)),
             ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
                 children: [
                   _SettingsSection('IMPORT'),
+                  _SettingsTile(
+                    icon: Icons.upload_file_rounded,
+                    title: 'Import YAML Plan',
+                    subtitle: 'Paste AI-generated YAML to create a project',
+                    onTap: () => context.push('/import'),
+                  ),
                   _SettingsTile(
                     icon: Icons.history_rounded,
                     title: 'Import History',
@@ -65,6 +73,12 @@ Keep phases to 3–6 high-level milestones. No task-level detail. No checkboxes.
                   ),
                   const SizedBox(height: 20),
                   _SettingsSection('DATA'),
+                  _SettingsTile(
+                    icon: Icons.archive_rounded,
+                    title: 'Project Archive',
+                    subtitle: 'View completed, archived, and dropped projects',
+                    onTap: () => context.pushNamed('archive'),
+                  ),
                   _SettingsTile(
                     icon: Icons.download_rounded,
                     title: 'Export All Data',
@@ -110,7 +124,7 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-      child: Text(label, style: PulseTypography.labelSmall.copyWith(color: PulseColors.textTertiary, letterSpacing: 1.5)),
+      child: Text(label, style: AppText.label().copyWith(color: AppColors.textSecondary)),
     );
   }
 }
@@ -127,14 +141,14 @@ class _SettingsTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: PulseColors.surface,
+        color: AppColors.surface1,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: PulseColors.border),
+        border: Border.all(color: AppColors.borderDefault),
       ),
       child: ListTile(
-        leading: Icon(icon, color: PulseColors.accent, size: 20),
-        title: Text(title, style: PulseTypography.bodyMedium),
-        subtitle: Text(subtitle, style: PulseTypography.bodySmall),
+        leading: Icon(icon, color: AppColors.gold, size: 20),
+        title: Text(title, style: AppText.bodyWhite().copyWith(fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle, style: AppText.body()),
         trailing: const Icon(Icons.chevron_right_rounded, size: 18),
         onTap: onTap,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

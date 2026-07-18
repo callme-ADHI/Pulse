@@ -15,7 +15,7 @@ class Projects extends Table {
   TextColumn     get name             => text()();
   TextColumn     get description      => text().nullable()();
   RealColumn     get weight           => real().withDefault(const Constant(1.0))(); // 0.1–5.0
-  TextColumn     get status           => text().withDefault(const Constant('active'))(); // active|paused|completed|archived
+  TextColumn     get status           => text().withDefault(const Constant('active'))(); // active|paused|completed|archived|dropped
   DateTimeColumn get createdAt        => dateTime()();
   DateTimeColumn get lastSessionAt    => dateTime().nullable()();
   RealColumn     get avgGapDays       => real().withDefault(const Constant(3.0))();
@@ -25,6 +25,10 @@ class Projects extends Table {
   TextColumn     get sourceImportId   => text().nullable()();
   BoolColumn     get isDeleted        => boolean().withDefault(const Constant(false))();
   DateTimeColumn get deletedAt        => dateTime().nullable()();
+  TextColumn     get dropReason       => text().nullable()(); // why the project was dropped/cancelled
+  DateTimeColumn get droppedAt        => dateTime().nullable()(); // when it was dropped
+  DateTimeColumn get startDate        => dateTime().nullable()(); // optional project start date
+  DateTimeColumn get endDate          => dateTime().nullable()(); // optional project deadline
 
   @override
   Set<Column> get primaryKey => {id};
@@ -67,9 +71,10 @@ class ExecutionPhases extends Table {
   IntColumn      get order          => integer()(); // drag-reorderable
   TextColumn     get name           => text()();
   TextColumn     get summary        => text().nullable()();
-  TextColumn     get status         => text().withDefault(const Constant('upcoming'))(); // upcoming|in_progress|done
+  TextColumn     get status         => text().withDefault(const Constant('upcoming'))(); // upcoming|in_progress|done|delayed
   DateTimeColumn get startedAt      => dateTime().nullable()();
   DateTimeColumn get doneAt         => dateTime().nullable()();
+  DateTimeColumn get deadline       => dateTime().nullable()(); // optional due date
   TextColumn     get sourceImportId => text().nullable()();
 
   @override
@@ -178,7 +183,7 @@ class PulseDatabase extends _$PulseDatabase {
   PulseDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration {
@@ -209,6 +214,18 @@ class PulseDatabase extends _$PulseDatabase {
           await m.addColumn(ideas, ideas.description);
 
           await _createIndexes();
+        }
+        if (from < 3) {
+          await m.addColumn(projects, projects.dropReason);
+          await m.addColumn(projects, projects.droppedAt);
+        }
+        if (from < 4) {
+          await m.addColumn(projects, projects.startDate);
+          await m.addColumn(projects, projects.endDate);
+        }
+        if (from < 5) {
+          // v4 → v5: add deadline column to execution_phases
+          await m.addColumn(executionPhases, executionPhases.deadline);
         }
       },
     );

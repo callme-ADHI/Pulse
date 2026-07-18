@@ -6,51 +6,61 @@ void main() {
     // §6.2 formula verification
 
     test('score is 0 when project was just touched (day 0)', () {
+      final now = DateTime.now();
       final result = DecayCalculator.compute(DecayInput(
-        daysSinceLastSession: 0,
+        lastSessionAt: now,
+        projectCreatedAt: now,
         avgGapDays: 3.0,
-        priority: 'medium',
+        weight: 2.22, // wf = 1.0
       ));
       expect(result.score, closeTo(20.0, 0.1));
       expect(result.zone, 'active');
     });
 
     test('high priority decays faster than low priority at same cadence', () {
+      final now = DateTime.now();
       final high = DecayCalculator.compute(DecayInput(
-        daysSinceLastSession: 2,
+        lastSessionAt: now.subtract(const Duration(days: 2)),
+        projectCreatedAt: now.subtract(const Duration(days: 2)),
         avgGapDays: 3.0,
-        priority: 'high',
+        weight: 5.0, // wf = 1.5
       ));
       final low = DecayCalculator.compute(DecayInput(
-        daysSinceLastSession: 2,
+        lastSessionAt: now.subtract(const Duration(days: 2)),
+        projectCreatedAt: now.subtract(const Duration(days: 2)),
         avgGapDays: 3.0,
-        priority: 'low',
+        weight: 0.0, // wf = 0.6
       ));
       expect(high.score, greaterThan(low.score));
     });
 
     test('score is clamped at 100 for very stale project', () {
+      final now = DateTime.now();
       final result = DecayCalculator.compute(DecayInput(
-        daysSinceLastSession: 100,
+        lastSessionAt: now.subtract(const Duration(days: 100)),
+        projectCreatedAt: now.subtract(const Duration(days: 100)),
         avgGapDays: 1.0,
-        priority: 'high',
+        weight: 5.0,
       ));
       expect(result.score, equals(100.0));
       expect(result.zone, 'critical');
     });
 
     test('cadence-respecting project stays healthier than flat-day project', () {
+      final now = DateTime.now();
       // Project A: 10 days since session, but avg gap is 12 days (on schedule)
       final onSchedule = DecayCalculator.compute(DecayInput(
-        daysSinceLastSession: 10,
+        lastSessionAt: now.subtract(const Duration(days: 10)),
+        projectCreatedAt: now.subtract(const Duration(days: 10)),
         avgGapDays: 12.0,
-        priority: 'medium',
+        weight: 2.22,
       ));
       // Project B: 10 days since session, avg gap is 2 days (very behind)
       final behind = DecayCalculator.compute(DecayInput(
-        daysSinceLastSession: 10,
+        lastSessionAt: now.subtract(const Duration(days: 10)),
+        projectCreatedAt: now.subtract(const Duration(days: 10)),
         avgGapDays: 2.0,
-        priority: 'medium',
+        weight: 2.22,
       ));
       expect(onSchedule.score, lessThan(behind.score));
     });
@@ -92,22 +102,24 @@ void main() {
 
     group('Priority weights', () {
       test('high priority adds most urgency', () {
+        final now = DateTime.now();
         final score = DecayCalculator.compute(DecayInput(
-          daysSinceLastSession: 14,
+          lastSessionAt: now.subtract(const Duration(days: 14)),
+          projectCreatedAt: now.subtract(const Duration(days: 14)),
           avgGapDays: 14.0,
-          priority: 'high',
+          weight: 5.0,
         ));
-        // At exactly avgGapDays cadence: recency=1.0*35=35, cadence=1.0*45=45, priority=1.5*20=30 → 110 → clamped 100
         expect(score.score, equals(100.0));
       });
 
       test('low priority score with same cadence miss', () {
+        final now = DateTime.now();
         final score = DecayCalculator.compute(DecayInput(
-          daysSinceLastSession: 14,
+          lastSessionAt: now.subtract(const Duration(days: 14)),
+          projectCreatedAt: now.subtract(const Duration(days: 14)),
           avgGapDays: 14.0,
-          priority: 'low',
+          weight: 0.0,
         ));
-        // recency=35, cadence=45, priority=0.6*20=12 → 92 → clamped 92
         expect(score.score, closeTo(92.0, 0.5));
         expect(score.zone, 'critical');
       });

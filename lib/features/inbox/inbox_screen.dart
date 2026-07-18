@@ -12,7 +12,7 @@ import '../../theme/app_dimensions.dart';
 /// Shows unsorted captured ideas.
 /// Swipe right → link to project.
 /// Swipe left → archive.
-/// Long-press → promote to new project.
+/// Tap → edit/promote detail sheet.
 class InboxScreen extends ConsumerWidget {
   const InboxScreen({super.key});
 
@@ -33,7 +33,7 @@ class InboxScreen extends ConsumerWidget {
                 children: [
                   Text('Inbox', style: AppText.title()),
                   const SizedBox(height: 2),
-                  Text('Swipe to link / archive. Long-press to promote.',
+                  Text('Swipe to link / archive. Tap to edit and promote.',
                       style: AppText.label().copyWith(color: AppColors.textSecondary)),
                 ],
               ),
@@ -84,18 +84,21 @@ class _IdeaTile extends ConsumerWidget {
       ),
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          // Link to project
           _showProjectPicker(context, ref, idea);
           return false; // picker handles DB mutation and pops/closes sheet
         } else {
-          // Archive
           await ref.read(ideaDaoProvider).archiveIdea(idea.id);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Idea archived')),
+          );
           return true;
         }
       },
       child: GestureDetector(
+        onTap: () => context.push('/idea/${idea.id}'),
         onLongPress: () => _promoteToProject(context, ref, idea),
         child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(AppDim.cardPad),
           decoration: BoxDecoration(
             color: AppColors.surface1,
@@ -114,6 +117,15 @@ class _IdeaTile extends ConsumerWidget {
                   height: 1.4,
                 ),
               ),
+              if (idea.description != null && idea.description!.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  idea.description!,
+                  style: AppText.body().copyWith(color: AppColors.textSecondary),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 _relTime(idea.createdAt),
@@ -323,13 +335,9 @@ class _PromoteSheet extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(AppDim.radiusBtn),
                 ),
               ),
-              onPressed: () async {
+              onPressed: () {
                 Navigator.of(context).pop();
-                // We will promote the idea and navigate to the project creation page
-                await ref.read(ideaDaoProvider).promoteIdea(idea.id, 'temp');
-                if (context.mounted) {
-                  context.push('/new-project?name=${Uri.encodeComponent(idea.content.split('\n').first)}&desc=${Uri.encodeComponent(idea.content)}');
-                }
+                context.push('/new-project?name=${Uri.encodeComponent(idea.content.split('\n').first)}&desc=${Uri.encodeComponent(idea.content)}&ideaId=${idea.id}');
               },
               child: Text(
                 'Promote Now',
@@ -342,6 +350,8 @@ class _PromoteSheet extends ConsumerWidget {
     );
   }
 }
+
+
 
 class _EmptyInbox extends StatelessWidget {
   const _EmptyInbox();

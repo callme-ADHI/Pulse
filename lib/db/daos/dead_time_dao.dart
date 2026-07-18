@@ -25,4 +25,12 @@ class DeadTimeDao {
   Future<void> deleteDeadTime(String id) async {
     await (_db.delete(_db.deadTimes)..where((t) => t.id.equals(id))).go();
   }
+
+  Future<List<DeadTime>> getAll() {
+    return _db.select(_db.deadTimes).get();
+  }
+
+  Future<void> updateDeadTime(DeadTimesCompanion dt) async {
+    await (_db.update(_db.deadTimes)..where((t) => t.id.equals(dt.id.value))).write(dt);
+  }
 }

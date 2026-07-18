@@ -24,6 +24,8 @@ class ParsedProject {
     required this.relations,
     required this.isNew,
     this.existingProjectId,
+    this.startDate,
+    this.endDate,
   });
 
   final String name;
@@ -32,12 +34,10 @@ class ParsedProject {
   final List<ParsedPhase> phases;
   final List<String> ideas;
   final List<ParsedRelation> relations;
-
-  /// Whether this will create a new project row.
   final bool isNew;
-
-  /// If matched to an existing project, its DB id.
   final String? existingProjectId;
+  final DateTime? startDate;
+  final DateTime? endDate;
 }
 
 class ParsedPhase {
@@ -211,6 +211,26 @@ class YamlParser {
       }
     }
 
+    // Optional: startDate
+    DateTime? startDate;
+    final rawStartDate = raw['startDate']?.toString().trim();
+    if (rawStartDate != null && rawStartDate.isNotEmpty) {
+      startDate = DateTime.tryParse(rawStartDate);
+      if (startDate == null) {
+        _warnings.add('Project "$name": invalid startDate "$rawStartDate" — ignored.');
+      }
+    }
+
+    // Optional: endDate
+    DateTime? endDate;
+    final rawEndDate = raw['endDate']?.toString().trim();
+    if (rawEndDate != null && rawEndDate.isNotEmpty) {
+      endDate = DateTime.tryParse(rawEndDate);
+      if (endDate == null) {
+        _warnings.add('Project "$name": invalid endDate "$rawEndDate" — ignored.');
+      }
+    }
+
     // Check if matches an existing project (fuzzy match)
     final matchId = _fuzzyMatch(name, existingProjects);
 
@@ -223,6 +243,8 @@ class YamlParser {
       relations: relations,
       isNew: matchId == null,
       existingProjectId: matchId,
+      startDate: startDate,
+      endDate: endDate,
     );
   }
 

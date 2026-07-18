@@ -60,6 +60,7 @@ abstract final class AppColors {
     'paused'    => statusPaused,
     'completed' => statusCompleted,
     'archived'  => statusArchived,
+    'dropped'   => zoneCriticalFg,
     _           => textMuted,
   };
 

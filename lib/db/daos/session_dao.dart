@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import '../database.dart';
 
 part 'session_dao.g.dart';
@@ -8,40 +9,98 @@ class SessionDao extends DatabaseAccessor<PulseDatabase>
     with _$SessionDaoMixin {
   SessionDao(super.db);
 
-  // ── Queries ───────────────────────────────────────────────────────────────
+  Future<Session?> getLiveSession() =>
+      (select(sessions)..where((s) => s.endedAt.isNull())).getSingleOrNull();
 
-  Stream<List<Session>> watchSessionsForProject(String projectId) {
-    return (select(sessions)
-          ..where((s) => s.projectId.equals(projectId))
-          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)]))
-        .watch();
+  Stream<Session?> watchLiveSession() =>
+      (select(sessions)..where((s) => s.endedAt.isNull())).watchSingleOrNull();
+
+  // Support both String and SessionsCompanion for backward compatibility
+  Future<String> startSession(dynamic projectIdOrCompanion) async {
+    if (projectIdOrCompanion is SessionsCompanion) {
+      await into(sessions).insert(projectIdOrCompanion);
+      return projectIdOrCompanion.id.value;
+    } else if (projectIdOrCompanion is String) {
+      final id = const Uuid().v4();
+      await into(sessions).insert(SessionsCompanion(
+        id: Value(id),
+        projectId: Value(projectIdOrCompanion),
+        startedAt: Value(DateTime.now()),
+      ));
+      return id;
+    }
+    throw ArgumentError('Invalid argument to startSession');
   }
 
-  Future<List<Session>> getSessionsForProject(String projectId) {
-    return (select(sessions)
-          ..where((s) => s.projectId.equals(projectId))
-          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)]))
+  Future<void> endSession(String sessionId, {
+    required String? tag,
+    required String? stopReason,
+    required String? nextStep,
+  }) async {
+    final now = DateTime.now();
+    final s = await (select(sessions)..where((s) => s.id.equals(sessionId))).getSingleOrNull();
+    if (s == null) return;
+    final duration = now.difference(s.startedAt).inSeconds;
+    await (update(sessions)..where((s) => s.id.equals(sessionId)))
+        .write(SessionsCompanion(
+      endedAt: Value(now),
+      durationSeconds: Value(duration),
+      tag: Value(tag),
+      stopReason: Value(stopReason),
+      nextStep: Value(nextStep),
+    ));
+  }
+
+  Stream<List<Session>> watchForProject(String projectId) =>
+      (select(sessions)
+            ..where((s) => s.projectId.equals(projectId))
+            ..orderBy([(s) => OrderingTerm.desc(s.startedAt)]))
+          .watch();
+
+  Future<void> updateSession(String id, {
+    Value<String?> tag = const Value.absent(),
+    Value<String?> stopReason = const Value.absent(),
+    Value<String?> nextStep = const Value.absent(),
+    Value<int?> durationSeconds = const Value.absent(),
+  }) =>
+      (update(sessions)..where((s) => s.id.equals(id)))
+          .write(SessionsCompanion(
+        tag: tag,
+        stopReason: stopReason,
+        nextStep: nextStep,
+        durationSeconds: durationSeconds,
+      ));
+
+  Future<void> deleteSession(String id) =>
+      (delete(sessions)..where((s) => s.id.equals(id))).go();
+
+  Future<int> totalSecondsForProject(String projectId) async {
+    final rows = await (select(sessions)
+          ..where((s) => s.projectId.equals(projectId) & s.endedAt.isNotNull()))
         .get();
+    return rows.fold<int>(0, (sum, s) => sum + (s.durationSeconds ?? 0));
   }
 
-  /// Returns the currently active (no endedAt) session for any project.
-  Future<Session?> getActiveSession() {
-    return (select(sessions)
-          ..where((s) => s.endedAt.isNull())
-          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
-          ..limit(1))
-        .getSingleOrNull();
-  }
+  Future<List<Session>> getAllCompleted() =>
+      (select(sessions)..where((s) => s.endedAt.isNotNull())).get();
 
-  Stream<Session?> watchActiveSession() {
-    return (select(sessions)
-          ..where((s) => s.endedAt.isNull())
-          ..orderBy([(s) => OrderingTerm.desc(s.startedAt)])
-          ..limit(1))
-        .watchSingleOrNull();
-  }
+  // For report: sessions in date range
+  Future<List<Session>> getInRange(DateTime from, DateTime to) =>
+      (select(sessions)
+            ..where((s) => s.startedAt.isBiggerOrEqualValue(from) &
+                s.startedAt.isSmallerThanValue(to)))
+          .get();
 
-  /// Sessions within the last N days for a project (for decay calculation).
+  // Backward compatibility methods
+  Stream<Session?> watchActiveSession() => watchLiveSession();
+  Future<Session?> getActiveSession() => getLiveSession();
+  Stream<List<Session>> watchSessionsForProject(String projectId) => watchForProject(projectId);
+  Future<List<Session>> getSessionsForProject(String projectId) =>
+      (select(sessions)
+            ..where((s) => s.projectId.equals(projectId))
+            ..orderBy([(s) => OrderingTerm.desc(s.startedAt)]))
+          .get();
+
   Future<List<Session>> getRecentSessions(String projectId, {int days = 90}) {
     final cutoff = DateTime.now().subtract(Duration(days: days));
     return (select(sessions)
@@ -52,7 +111,6 @@ class SessionDao extends DatabaseAccessor<PulseDatabase>
         .get();
   }
 
-  /// Total hours logged for a project in the last 7 days.
   Future<int> getTotalSecondsLastWeek(String projectId) async {
     final cutoff = DateTime.now().subtract(const Duration(days: 7));
     final result = await (select(sessions)
@@ -63,43 +121,8 @@ class SessionDao extends DatabaseAccessor<PulseDatabase>
     return result.fold<int>(0, (sum, s) => sum + (s.durationSeconds ?? 0));
   }
 
-  // ── Mutations ─────────────────────────────────────────────────────────────
+  Future<int> getTotalSecondsForProject(String projectId) => totalSecondsForProject(projectId);
 
-  Future<void> startSession(SessionsCompanion companion) {
-    return into(sessions).insert(companion);
-  }
-
-  Future<void> endSession(
-    String sessionId,
-    DateTime endedAt,
-    int durationSeconds,
-    String? tag, {
-    String? stopReason,
-    String? stopNote,
-    String? nextStep,
-  }) {
-    return (update(sessions)..where((s) => s.id.equals(sessionId))).write(
-      SessionsCompanion(
-        endedAt: Value(endedAt),
-        durationSeconds: Value(durationSeconds),
-        tag: Value(tag),
-        stopReason: Value(stopReason),
-        stopNote: Value(stopNote),
-        nextStep: Value(nextStep),
-      ),
-    );
-  }
-
-  /// Total seconds across all completed sessions for a project.
-  Future<int> getTotalSecondsForProject(String projectId) async {
-    final result = await (select(sessions)
-          ..where((s) => s.projectId.equals(projectId))
-          ..where((s) => s.endedAt.isNotNull()))
-        .get();
-    return result.fold<int>(0, (sum, s) => sum + (s.durationSeconds ?? 0));
-  }
-
-  /// Stop reason counts for a project — returns map of reason → count.
   Future<Map<String, int>> getStopReasonCounts(String projectId) async {
     final result = await (select(sessions)
           ..where((s) => s.projectId.equals(projectId))
@@ -115,7 +138,6 @@ class SessionDao extends DatabaseAccessor<PulseDatabase>
     return counts;
   }
 
-  /// Longest gap between consecutive sessions (in days).
   Future<({double days, DateTime from, DateTime to})?> getLongestGap(String projectId) async {
     final result = await (select(sessions)
           ..where((s) => s.projectId.equals(projectId))

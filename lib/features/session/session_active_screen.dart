@@ -8,6 +8,8 @@ import '../../theme/app_text.dart';
 import '../../theme/app_dimensions.dart';
 import '../home/home_providers.dart';
 import '../../providers.dart';
+import '../../db/database.dart';
+import '../../engine/notifications/notification_scheduler.dart';
 
 /// Session Active screen — spec §6.3
 /// Full-screen black canvas. 48px mono timer. Tag chips. Ghost Stop button.
@@ -41,28 +43,47 @@ class _SessionActiveScreenState
   }
 
   Future<void> _loadSession() async {
-    final sessions = await ref
-        .read(sessionDaoProvider)
-        .getSessionsForProject(widget.projectId);
-    final session =
-        sessions.where((s) => s.id == widget.sessionId).firstOrNull;
-    if (session != null) {
-      setState(() {
-        _startedAt = session.startedAt;
-        _elapsed = DateTime.now().difference(_startedAt!);
-      });
-      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) {
-          setState(() =>
-              _elapsed = DateTime.now().difference(_startedAt!));
-        }
-      });
+    Session? session;
+
+    // Primary: look up by the passed sessionId (normal start flow).
+    if (widget.sessionId.isNotEmpty) {
+      final sessions = await ref
+          .read(sessionDaoProvider)
+          .getSessionsForProject(widget.projectId);
+      session = sessions.where((s) => s.id == widget.sessionId).firstOrNull;
     }
+
+    // Fallback: if sessionId is empty or not found, check for any live session
+    // on this project (handles cold-start / app-resume scenario).
+    session ??= await ref.read(sessionDaoProvider).getLiveSession();
+
+    if (session == null || session.projectId != widget.projectId) return;
+
+    setState(() {
+      _startedAt = session!.startedAt;
+      _elapsed = DateTime.now().difference(_startedAt!);
+    });
+
+    final proj = await ref.read(projectDaoProvider).getProjectById(widget.projectId);
+    final projName = proj?.name ?? 'Project';
+
+    // Show / refresh the persistent notification chronometer.
+    await showActiveSessionNotification(
+      projectName: projName,
+      startedAt: _startedAt!,
+    );
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() => _elapsed = DateTime.now().difference(_startedAt!));
+      }
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    cancelActiveSessionNotification();
     super.dispose();
   }
 

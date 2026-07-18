@@ -23,6 +23,22 @@ class PhaseDao {
         .get();
   }
 
+  /// All phases that have a deadline in the past and are NOT yet done/delayed.
+  Future<List<ExecutionPhase>> getOverduePhases() {
+    final now = DateTime.now();
+    return (_db.select(_db.executionPhases)
+          ..where((t) =>
+              t.deadline.isSmallerThanValue(now) &
+              t.status.isNotIn(['done', 'delayed'])))
+        .get();
+  }
+
+  Future<void> markPhaseDelayed(String id) async {
+    await (_db.update(_db.executionPhases)..where((t) => t.id.equals(id))).write(
+      const ExecutionPhasesCompanion(status: Value('delayed')),
+    );
+  }
+
   // ── Writes ────────────────────────────────────────────────────────────────
 
   Future<void> insertPhase(ExecutionPhasesCompanion phase) async {

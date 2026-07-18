@@ -1,149 +1,206 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../theme/colors.dart';
-import '../theme/typography.dart';
-import '../providers.dart';
 import '../features/capture/quick_capture_modal.dart';
 
-/// The bottom navigation shell — §7.10
-/// Center Capture button breaks the bar's top edge.
-/// Active tab: gold icon + uppercase gold label. Inactive: icon only, white at 35% opacity.
+// ════════════════════════════════════════════════════════════════════════════
+// PULSE SHELL — holds child + radial nav
+// ════════════════════════════════════════════════════════════════════════════
+
 class PulseShell extends ConsumerWidget {
   const PulseShell({super.key, required this.child});
   final Widget child;
 
-  static const _tabs = [
-    _NavTab(
-      label: 'Home',
-      route: '/home',
-      selectedIcon: Icons.home_rounded,
-      unselectedIcon: Icons.home_outlined,
-    ),
-    _NavTab(
-      label: 'Map',
-      route: '/map',
-      selectedIcon: Icons.hub_rounded,
-      unselectedIcon: Icons.hub_outlined,
-    ),
-    _NavTab(
-      label: 'Inbox',
-      route: '/inbox',
-      selectedIcon: Icons.inbox_rounded,
-      unselectedIcon: Icons.inbox_outlined,
-    ),
-    _NavTab(
-      label: 'Settings',
-      route: '/settings',
-      selectedIcon: Icons.settings_rounded,
-      unselectedIcon: Icons.settings_outlined,
-    ),
-  ];
-
-  int _currentIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/map')) return 1;
-    if (location.startsWith('/inbox')) return 2;
-    if (location.startsWith('/settings')) return 3;
-    return 0;
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final currentIndex = _currentIndex(context);
-    final activeSession = ref.watch(activeSessionProvider).valueOrNull;
-
     return Scaffold(
-      body: child,
-      extendBody: true,
-      floatingActionButton: _CaptureButton(hasActiveSession: activeSession != null),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _PulseNavBar(
-        currentIndex: currentIndex,
-        tabs: _tabs,
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Page content
+          Positioned.fill(child: child),
+          // Radial nav overlay on top of everything
+          const _RadialNavOverlay(),
+        ],
       ),
     );
   }
 }
 
-class _PulseNavBar extends StatelessWidget {
-  const _PulseNavBar({
-    required this.currentIndex,
-    required this.tabs,
-  });
+// ════════════════════════════════════════════════════════════════════════════
+// RADIAL NAV OVERLAY
+// ════════════════════════════════════════════════════════════════════════════
 
-  final int currentIndex;
-  final List<_NavTab> tabs;
+const _kTriggerZoneHeight = 80.0;  // bottom zone that activates the hold
+const _kHoldDelay = Duration(milliseconds: 140);
+const _kNavRadius  = 160.0;
+const _kArcDeg     = 160.0;
+
+class _NavTarget {
+  final IconData icon;
+  final String label;
+  final String route;
+  const _NavTarget({required this.icon, required this.label, required this.route});
+}
+
+const _targets = [
+  _NavTarget(icon: Icons.home_rounded,           label: 'HOME',     route: '/home'),
+  _NavTarget(icon: Icons.dashboard_rounded,      label: 'PROJECTS', route: '/projects'),
+  _NavTarget(icon: Icons.lightbulb_outline_rounded, label: 'IDEAS', route: '/ideas'),
+  _NavTarget(icon: Icons.hub_rounded,            label: 'MAP',      route: '/map'),
+  _NavTarget(icon: Icons.inbox_rounded,          label: 'INBOX',    route: '/inbox'),
+  _NavTarget(icon: Icons.bar_chart_rounded,      label: 'REPORT',   route: '/weekly-report'),
+  _NavTarget(icon: Icons.settings_rounded,       label: 'SETTINGS', route: '/settings'),
+];
+
+class _RadialNavOverlay extends ConsumerStatefulWidget {
+  const _RadialNavOverlay();
+  @override
+  ConsumerState<_RadialNavOverlay> createState() => _RadialNavOverlayState();
+}
+
+class _RadialNavOverlayState extends ConsumerState<_RadialNavOverlay>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  bool _active = false;
+  Offset _center = Offset.zero;
+  int _selectedIndex = -1;
+
+  Offset? _initTouch;
+  bool _timerActive = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _startTimer(Offset pos) {
+    _initTouch = pos;
+    _timerActive = true;
+    Future.delayed(_kHoldDelay, () {
+      if (_timerActive && _initTouch != null && !_active && mounted) {
+        final size = MediaQuery.of(context).size;
+        setState(() {
+          _active = true;
+          _center = Offset(size.width / 2, size.height - 40);
+          _selectedIndex = -1;
+        });
+        _ctrl.forward();
+        HapticFeedback.heavyImpact();
+      }
+    });
+  }
+
+  void _cancelTimer() {
+    _timerActive = false;
+    _initTouch = null;
+  }
+
+  void _onPointerDown(PointerDownEvent e) {
+    final size = MediaQuery.of(context).size;
+    if (e.position.dy > size.height - _kTriggerZoneHeight) _startTimer(e.position);
+  }
+
+  void _onPointerMove(PointerMoveEvent e) {
+    if (!_active) {
+      if (_initTouch != null && (e.position - _initTouch!).distance > 20) _cancelTimer();
+      return;
+    }
+    final delta = e.position - _center;
+    final dist  = delta.distance;
+    if (dist < 50) {
+      if (_selectedIndex != -1) setState(() => _selectedIndex = -1);
+      return;
+    }
+
+    double angle = math.atan2(delta.dy, delta.dx) * 180 / math.pi;
+    angle = (angle + 360) % 360;
+    const start = 270.0 - (_kArcDeg / 2);
+    const end   = 270.0 + (_kArcDeg / 2);
+    int newIdx = -1;
+    if (angle >= start && angle <= end) {
+      final rel = (angle - start) / _kArcDeg;
+      newIdx = (rel * _targets.length).floor().clamp(0, _targets.length - 1);
+    }
+    if (newIdx != _selectedIndex) {
+      setState(() => _selectedIndex = newIdx);
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent e) {
+    _cancelTimer();
+    if (!_active) return;
+
+    if (_selectedIndex != -1) {
+      context.go(_targets[_selectedIndex].route);
+    }
+    _ctrl.reverse().then((_) {
+      if (mounted) setState(() { _active = false; _selectedIndex = -1; });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-        border: Border(
-          top: BorderSide(color: PulseColors.surfaceOverlay, width: 1),
-        ),
-      ),
-      child: SafeArea(
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            children: [
-              // Left side tabs (Home, Map)
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildTab(context, 0, tabs[0]),
-                    _buildTab(context, 1, tabs[1]),
-                  ],
-                ),
-              ),
-              // Space for the floating capture button
-              const SizedBox(width: 80),
-              // Right side tabs (Inbox, Settings)
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildTab(context, 2, tabs[2]),
-                    _buildTab(context, 3, tabs[3]),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTab(BuildContext context, int index, _NavTab tab) {
-    final isSelected = currentIndex == index;
-    return GestureDetector(
-      onTap: () => context.go(tab.route),
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return Positioned.fill(
+      child: Listener(
+        onPointerDown: _onPointerDown,
+        onPointerMove: _onPointerMove,
+        onPointerUp: _onPointerUp,
+        behavior: HitTestBehavior.translucent,
+        child: Stack(
           children: [
-            Icon(
-              isSelected ? tab.selectedIcon : tab.unselectedIcon,
-              color: isSelected
-                  ? PulseColors.accent
-                  : Colors.white.withValues(alpha: 0.35),
-              size: 22,
+            // ── Capture FAB (always visible at bottom center) ───────────────
+            Positioned(
+              bottom: 28,
+              left: 0, right: 0,
+              child: Center(child: _CaptureButton()),
             ),
-            if (isSelected) ...[
-              const SizedBox(height: 3),
-              Text(
-                tab.label.toUpperCase(),
-                style: PulseTypography.labelSmall.copyWith(
-                  color: PulseColors.accent,
-                  fontSize: 10,
+
+            // ── Radial overlay when active ──────────────────────────────────
+            if (_active) ...[
+              FadeTransition(
+                opacity: _ctrl,
+                child: GestureDetector(
+                  onVerticalDragUpdate: (_) {},
+                  child: Container(color: Colors.black.withValues(alpha: 0.78)),
                 ),
+              ),
+              AnimatedBuilder(
+                animation: _anim,
+                builder: (_, __) {
+                  return Stack(
+                    children: List.generate(_targets.length, (i) {
+                      const arcRad  = _kArcDeg * (math.pi / 180);
+                      const startR  = (270.0 - _kArcDeg / 2) * (math.pi / 180);
+                      final angle   = startR + (i + 0.5) * (arcRad / _targets.length);
+                      final radius  = _kNavRadius * _anim.value;
+                      final dx = radius * math.cos(angle);
+                      final dy = radius * math.sin(angle);
+                      return Positioned(
+                        left: _center.dx + dx - 28,
+                        top:  _center.dy + dy - 28,
+                        child: _NavItem(
+                          target: _targets[i],
+                          isSelected: _selectedIndex == i,
+                          expandValue: _anim.value,
+                        ),
+                      );
+                    }),
+                  );
+                },
               ),
             ],
           ],
@@ -153,52 +210,78 @@ class _PulseNavBar extends StatelessWidget {
   }
 }
 
-class _CaptureButton extends StatelessWidget {
-  const _CaptureButton({required this.hasActiveSession});
-  final bool hasActiveSession;
+// ════════════════════════════════════════════════════════════════════════════
+// NAV ITEM
+// ════════════════════════════════════════════════════════════════════════════
+
+class _NavItem extends StatelessWidget {
+  final _NavTarget target;
+  final bool isSelected;
+  final double expandValue;
+
+  const _NavItem({required this.target, required this.isSelected, required this.expandValue});
 
   @override
   Widget build(BuildContext context) {
-    // FAB is 50px circle + 4px black border = 58px total
-    return GestureDetector(
-      onTap: () => _openCapture(context),
-      child: Container(
-        width: 58,
-        height: 58,
-        decoration: BoxDecoration(
-          color: PulseColors.accent,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.black, width: 4),
-        ),
-        child: const Icon(
-          Icons.add_rounded,
-          color: Colors.black,
-          size: 24,
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 200),
+      scale: isSelected ? 1.3 : 1.0,
+      curve: Curves.easeOutBack,
+      child: Opacity(
+        opacity: expandValue * (isSelected ? 1.0 : 0.55),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48, height: 48,
+              decoration: const BoxDecoration(
+                color: Colors.transparent,
+              ),
+              child: Icon(target.icon,
+                  color: Colors.white,
+                  size: 22),
+            ),
+            const SizedBox(height: 5),
+            if (isSelected)
+              Text(target.label, style: const TextStyle(
+                color: Colors.white,
+                fontSize: 8, fontWeight: FontWeight.w800,
+                letterSpacing: 1.2, fontFamily: 'Inter',
+              )),
+          ],
         ),
       ),
     );
   }
-
-  void _openCapture(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const QuickCaptureModal(),
-    );
-  }
 }
 
-class _NavTab {
-  const _NavTab({
-    required this.label,
-    required this.route,
-    required this.selectedIcon,
-    required this.unselectedIcon,
-  });
+// ════════════════════════════════════════════════════════════════════════════
+// CAPTURE FAB
+// ════════════════════════════════════════════════════════════════════════════
 
-  final String label;
-  final String route;
-  final IconData selectedIcon;
-  final IconData unselectedIcon;
+class _CaptureButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => showModalBottomSheet(
+        context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+        builder: (_) => const QuickCaptureModal(),
+      ),
+      child: Container(
+        width: 52, height: 52,
+        decoration: BoxDecoration(
+          color: const Color(0xFFC9A84C),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFC9A84C).withValues(alpha: 0.25),
+              blurRadius: 14,
+              spreadRadius: 1,
+            )
+          ],
+        ),
+        child: const Icon(Icons.add_rounded, color: Colors.black, size: 26),
+      ),
+    );
+  }
 }

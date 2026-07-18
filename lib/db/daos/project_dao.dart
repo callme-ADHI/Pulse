@@ -10,39 +10,50 @@ class ProjectDao extends DatabaseAccessor<PulseDatabase>
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
-  /// All active (non-deleted) projects, ordered by status severity then name.
-  Stream<List<Project>> watchActiveProjects() {
+  /// Active + paused only (Home screen)
+  Stream<List<Project>> watchActiveAndPaused() {
     return (select(projects)
-          ..where((p) => p.isDeleted.equals(false))
-          ..where(
-            (p) => p.status.isIn(['active', 'paused', 'completed']),
-          )
-          ..orderBy([
-            (p) => OrderingTerm.asc(p.name),
-          ]))
+          ..where((p) => p.isDeleted.equals(false) & p.status.isIn(['active', 'paused']))
+          ..orderBy([(p) => OrderingTerm.desc(p.lastSessionAt)]))
         .watch();
   }
+
+  /// All non-deleted (for Map)
+  Stream<List<Project>> watchAllLive() {
+    return (select(projects)..where((p) => p.isDeleted.equals(false))).watch();
+  }
+
+  /// Archived + dropped + completed (for Archive screen)
+  Stream<List<Project>> watchArchivedAndDropped() {
+    return (select(projects)
+          ..where((p) => p.isDeleted.equals(false) & p.status.isIn(['archived', 'dropped', 'completed'])))
+        .watch();
+  }
+
+  Stream<Project?> watchById(String id) {
+    return (select(projects)..where((p) => p.id.equals(id))).watchSingleOrNull();
+  }
+
+  Future<Project?> getById(String id) {
+    return (select(projects)..where((p) => p.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Keep for backward compatibility
+  Stream<Project?> watchProjectById(String id) => watchById(id);
+  Future<Project?> getProjectById(String id) => getById(id);
 
   /// Projects for the home list — excludes archived and deleted.
   Stream<List<Project>> watchHomeProjects() {
     return (select(projects)
           ..where((p) => p.isDeleted.equals(false))
-          ..where((p) => p.status.isNotIn(['archived'])))
+          ..where((p) => p.status.isNotIn(['archived', 'dropped', 'completed'])))
         .watch();
-  }
-
-  Future<Project?> getProjectById(String id) {
-    return (select(projects)..where((p) => p.id.equals(id))).getSingleOrNull();
-  }
-
-  Stream<Project?> watchProjectById(String id) {
-    return (select(projects)..where((p) => p.id.equals(id))).watchSingleOrNull();
   }
 
   Future<List<Project>> getAllActiveProjectsList() {
     return (select(projects)
           ..where((p) => p.isDeleted.equals(false))
-          ..where((p) => p.status.isNotIn(['archived'])))
+          ..where((p) => p.status.isNotIn(['archived', 'dropped', 'completed'])))
         .get();
   }
 
@@ -52,9 +63,11 @@ class ProjectDao extends DatabaseAccessor<PulseDatabase>
         .get();
   }
 
-  // (getProjectsForDecayJob is defined at the bottom of this file — active-only)
-
   // ── Mutations ─────────────────────────────────────────────────────────────
+
+  Future<void> upsert(ProjectsCompanion c) {
+    return into(projects).insertOnConflictUpdate(c);
+  }
 
   Future<void> insertProject(ProjectsCompanion companion) {
     return into(projects).insert(companion);
@@ -65,62 +78,73 @@ class ProjectDao extends DatabaseAccessor<PulseDatabase>
         .write(companion);
   }
 
-  /// Soft-delete a project.
-  Future<void> softDeleteProject(String id) {
-    return (update(projects)..where((p) => p.id.equals(id))).write(
-      ProjectsCompanion(
-        isDeleted: const Value(true),
-        deletedAt: Value(DateTime.now()),
-      ),
-    );
+  Future<void> updateStatus(String id, String status) {
+    return (update(projects)..where((p) => p.id.equals(id)))
+        .write(ProjectsCompanion(status: Value(status)));
   }
 
-  /// Hard-delete projects soft-deleted > 30 days ago.
-  Future<void> hardDeleteExpired() async {
-    final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    await (delete(projects)
-          ..where((p) => p.isDeleted.equals(true))
-          ..where((p) => p.deletedAt.isSmallerThanValue(cutoff)))
-        .go();
+  Future<void> dropProject(String id, String reason) {
+    return (update(projects)..where((p) => p.id.equals(id)))
+        .write(ProjectsCompanion(
+      status: const Value('dropped'),
+      dropReason: Value(reason),
+      droppedAt: Value(DateTime.now()),
+    ));
   }
 
-  Future<void> updateLastSessionAt(String id, DateTime time) {
-    return (update(projects)..where((p) => p.id.equals(id))).write(
-      ProjectsCompanion(lastSessionAt: Value(time)),
-    );
+  Future<void> updateAvgGap(String id, double avgGap) {
+    return (update(projects)..where((p) => p.id.equals(id)))
+        .write(ProjectsCompanion(avgGapDays: Value(avgGap)));
   }
 
-  Future<void> updateAvgGapDays(String id, double newAvg) {
-    return (update(projects)..where((p) => p.id.equals(id))).write(
-      ProjectsCompanion(avgGapDays: Value(newAvg)),
-    );
+  Future<void> updateAvgGapDays(String id, double avgGap) => updateAvgGap(id, avgGap);
+
+  Future<void> updateLastSession(String id, DateTime dt, String? note) {
+    return (update(projects)..where((p) => p.id.equals(id)))
+        .write(ProjectsCompanion(
+      lastSessionAt: Value(dt),
+      lastNote: Value(note),
+    ));
+  }
+
+  Future<void> updateLastSessionAt(String id, DateTime dt) {
+    return (update(projects)..where((p) => p.id.equals(id)))
+        .write(ProjectsCompanion(lastSessionAt: Value(dt)));
   }
 
   Future<void> updateLastNote(String id, String note) {
-    return (update(projects)..where((p) => p.id.equals(id))).write(
-      ProjectsCompanion(lastNote: Value(note)),
-    );
+    return (update(projects)..where((p) => p.id.equals(id)))
+        .write(ProjectsCompanion(lastNote: Value(note)));
   }
 
-  Future<void> updateStatus(String id, String status) {
-    return (update(projects)..where((p) => p.id.equals(id))).write(
-      ProjectsCompanion(status: Value(status)),
-    );
+  Future<void> softDelete(String id) {
+    return (update(projects)..where((p) => p.id.equals(id)))
+        .write(ProjectsCompanion(
+      isDeleted: const Value(true),
+      deletedAt: Value(DateTime.now()),
+    ));
   }
 
-  Future<void> updateWeight(String id, double weight) {
-    return (update(projects)..where((p) => p.id.equals(id))).write(
-      ProjectsCompanion(weight: Value(weight)),
-    );
+  Future<void> softDeleteProject(String id) => softDelete(id);
+
+  Future<void> restore(String id) {
+    return (update(projects)..where((p) => p.id.equals(id)))
+        .write(const ProjectsCompanion(status: Value('active')));
   }
 
-  Future<void> updateEstimatedMinutes(String id, int? minutes) {
-    return (update(projects)..where((p) => p.id.equals(id))).write(
-      ProjectsCompanion(estimatedMinutes: Value(minutes)),
-    );
+  Future<void> purgeOldDeleted() {
+    return (delete(projects)
+          ..where((p) => p.isDeleted.equals(true) &
+              p.deletedAt.isSmallerThanValue(
+                DateTime.now().subtract(const Duration(days: 30)),
+              )))
+        .go();
   }
 
-  /// Projects that need decay recompute — active only (not paused, completed, archived).
+  Future<void> hardDeleteExpired() => purgeOldDeleted();
+
+  Future<List<Project>> getAll() => select(projects).get();
+
   Future<List<Project>> getProjectsForDecayJob() {
     return (select(projects)
           ..where((p) => p.isDeleted.equals(false))

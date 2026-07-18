@@ -36,10 +36,22 @@ class IdeaDao extends DatabaseAccessor<PulseDatabase> with _$IdeaDaoMixin {
     return (select(ideas)..where((i) => i.id.equals(id))).getSingleOrNull();
   }
 
+  Stream<Idea?> watchIdeaById(String id) {
+    return (select(ideas)..where((i) => i.id.equals(id))).watchSingleOrNull();
+  }
+
   /// Ideas that have at least one relation — shown on the graph.
   Future<List<Idea>> getIdeasWithRelations(List<String> ideaIds) {
     if (ideaIds.isEmpty) return Future.value([]);
     return (select(ideas)..where((i) => i.id.isIn(ideaIds))).get();
+  }
+
+  Future<List<Idea>> getAllUnsorted() {
+    return (select(ideas)..where((i) => i.status.equals('unsorted'))).get();
+  }
+
+  Future<List<Idea>> getAll() {
+    return select(ideas).get();
   }
 
   // ── Mutations ─────────────────────────────────────────────────────────────
@@ -70,5 +82,18 @@ class IdeaDao extends DatabaseAccessor<PulseDatabase> with _$IdeaDaoMixin {
     return (update(ideas)..where((i) => i.id.equals(ideaId))).write(
       const IdeasCompanion(status: Value('archived')),
     );
+  }
+
+  Future<void> updateIdea(IdeasCompanion companion) {
+    return (update(ideas)..where((i) => i.id.equals(companion.id.value)))
+        .write(companion);
+  }
+
+  Future<void> deleteIdea(String id) {
+    return (delete(ideas)..where((i) => i.id.equals(id))).go();
+  }
+
+  Stream<List<Idea>> watchAll() {
+    return select(ideas).watch();
   }
 }

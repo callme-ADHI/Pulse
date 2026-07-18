@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers.dart';
 import '../../db/database.dart';
+import '../../engine/session/session_lifecycle_service.dart';
 
 /// Data object combining a project with its latest decay score/zone.
 class ProjectWithDecay {
@@ -19,6 +20,33 @@ class ProjectWithDecay {
 final enrichedProjectsProvider =
     StreamProvider<List<ProjectWithDecay>>((ref) {
   return ref.watch(projectDaoProvider).watchHomeProjects().map((projects) {
+    final now = DateTime.now();
+    final zoneOrder = {'critical': 0, 'cold': 1, 'drifting': 2, 'active': 3};
+
+    final enriched = projects.map((p) {
+      final daysSince = p.lastSessionAt != null
+          ? now.difference(p.lastSessionAt!).inHours / 24.0
+          : now.difference(p.createdAt).inHours / 24.0;
+      final score = _computeScore(daysSince, p.avgGapDays, p.weight);
+      final zone = _scoreToZone(score);
+      return ProjectWithDecay(project: p, score: score, zone: zone);
+    }).toList();
+
+    enriched.sort((a, b) {
+      final zo = (zoneOrder[a.zone] ?? 9).compareTo(zoneOrder[b.zone] ?? 9);
+      if (zo != 0) return zo;
+      return b.project.weight.compareTo(a.project.weight);
+    });
+
+    return enriched;
+  });
+});
+
+/// Provider: ALL non-deleted projects (including dropped/completed) for the
+/// full Projects screen list.
+final enrichedAllProjectsProvider =
+    StreamProvider<List<ProjectWithDecay>>((ref) {
+  return ref.watch(projectDaoProvider).watchAllLive().map((projects) {
     final now = DateTime.now();
     final zoneOrder = {'critical': 0, 'cold': 1, 'drifting': 2, 'active': 3};
 
@@ -71,14 +99,22 @@ class SessionNotifier extends StateNotifier<AsyncValue<void>> {
   Future<String?> startSession(String projectId) async {
     state = const AsyncLoading();
     try {
-      // End any live session first
-      final live =
-          await ref.read(sessionDaoProvider).getActiveSession();
+      final live = await ref.read(sessionDaoProvider).getActiveSession();
+
+      // If the live session is for THIS project, just resume it.
+      if (live != null && live.projectId == projectId) {
+        state = const AsyncData(null);
+        await SessionLifecycleService.setActiveSessionId(live.id);
+        return live.id;
+      }
+
+      // A different project is running — end it first.
       if (live != null) {
         await _endLive(live, stopReason: 'external_interrupt');
       }
 
       final sessionId = await _startNew(projectId);
+      await SessionLifecycleService.setActiveSessionId(sessionId);
       state = const AsyncData(null);
       return sessionId;
     } catch (e, st) {
@@ -103,16 +139,15 @@ class SessionNotifier extends StateNotifier<AsyncValue<void>> {
     final session = sessions.where((s) => s.id == sessionId).firstOrNull;
     if (session == null) return;
 
-    final durationSeconds = now.difference(session.startedAt).inSeconds;
     await sessionDao.endSession(
       sessionId,
-      now,
-      durationSeconds,
-      tag,
+      tag: tag,
       stopReason: stopReason,
-      stopNote: nextStep,
       nextStep: nextStep,
     );
+
+    // Clear persisted session ID so recovery logic doesn't re-open it.
+    await SessionLifecycleService.setActiveSessionId(null);
 
     // Update project avgGapDays + lastSessionAt + lastNote
     final project =
@@ -138,14 +173,11 @@ class SessionNotifier extends StateNotifier<AsyncValue<void>> {
     Session live, {
     required String stopReason,
   }) async {
-    final now = DateTime.now();
-    final dur = now.difference(live.startedAt).inSeconds;
     await ref.read(sessionDaoProvider).endSession(
       live.id,
-      now,
-      dur,
-      null,
+      tag: null,
       stopReason: stopReason,
+      nextStep: null,
     );
   }
 

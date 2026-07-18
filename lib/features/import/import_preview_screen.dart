@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:drift/drift.dart' hide Column;
 import '../../providers.dart';
-import '../../theme/colors.dart';
-import '../../theme/typography.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_text.dart';
 import 'yaml_parser.dart';
 import '../../db/database.dart';
 import 'package:uuid/uuid.dart';
@@ -57,6 +57,8 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
                 createdAt: DateTime.now(),
                 sourceImportId: Value(importId),
                 colorSeed: Value(projectId.substring(0, 6)),
+                startDate: Value(p.startDate),
+                endDate: Value(p.endDate),
               ),
             );
             createdProjects++;
@@ -165,10 +167,16 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
     final allRelations = result.projects.expand((p) => p.relations).toList();
 
     return Scaffold(
-      backgroundColor: PulseColors.background,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Preview Import'),
-        leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => context.pop()),
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text('Preview Import', style: AppText.title()),
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+          onPressed: () => context.pop(),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -176,7 +184,7 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
           if (result.warnings.isNotEmpty) ...[
             _PreviewSection(
               icon: Icons.warning_amber_rounded,
-              color: PulseColors.warning,
+              color: AppColors.zoneDriftingFg,
               title: 'Warnings (${result.warnings.length})',
               items: result.warnings,
             ),
@@ -184,7 +192,7 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
           ],
           _PreviewSection(
             icon: Icons.add_circle_outline_rounded,
-            color: PulseColors.zoneActive,
+            color: AppColors.zoneActiveFg,
             title: 'Will Create (${newProjects.length} projects)',
             items: newProjects.map((p) => 'Project: ${p.name}').toList(),
           ),
@@ -192,7 +200,7 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
             const SizedBox(height: 16),
             _PreviewSection(
               icon: Icons.link_rounded,
-              color: PulseColors.accent,
+              color: AppColors.gold,
               title: 'Will Link to Existing (${linkedProjects.length})',
               items: linkedProjects.map((p) => '"${p.name}" → matched existing project').toList(),
             ),
@@ -201,7 +209,7 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
             const SizedBox(height: 16),
             _PreviewSection(
               icon: Icons.lightbulb_outline_rounded,
-              color: PulseColors.zoneDrifting,
+              color: AppColors.gold,
               title: 'Ideas (${allIdeas.length})',
               items: allIdeas,
             ),
@@ -210,13 +218,13 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
             const SizedBox(height: 16),
             _PreviewSection(
               icon: Icons.account_tree_outlined,
-              color: PulseColors.edgeDependsOn,
+              color: AppColors.gold,
               title: 'Relations (${allRelations.length})',
               items: allRelations.map((r) => '${r.toName} [${r.type.replaceAll("_", " ")}]${r.willCreateShell == true ? " → will create shell" : " → matched"}').toList(),
             ),
           ],
           const SizedBox(height: 32),
-          Text('Nothing is written until you confirm.', style: PulseTypography.bodySmall.copyWith(color: PulseColors.textTertiary), textAlign: TextAlign.center),
+          Text('Nothing is written until you confirm.', style: AppText.body().copyWith(color: AppColors.textMuted), textAlign: TextAlign.center),
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
@@ -225,7 +233,7 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
               onPressed: _committing ? null : _commit,
               child: _committing
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 1.5))
-                  : const Text('Confirm Import'),
+                  : Text('Confirm Import', style: AppText.titleSmall().copyWith(color: Colors.black)),
             ),
           ),
           const SizedBox(height: 12),
@@ -234,7 +242,7 @@ class _ImportPreviewScreenState extends ConsumerState<ImportPreviewScreen> {
             height: 48,
             child: OutlinedButton(
               onPressed: () => context.pop(),
-              child: const Text('Cancel'),
+              child: Text('Cancel', style: AppText.titleSmall()),
             ),
           ),
         ],
@@ -254,9 +262,9 @@ class _PreviewSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: PulseColors.surface,
+        color: AppColors.surface1,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: PulseColors.border),
+        border: Border.all(color: AppColors.borderDefault),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,14 +275,14 @@ class _PreviewSection extends StatelessWidget {
               children: [
                 Icon(icon, color: color, size: 16),
                 const SizedBox(width: 8),
-                Text(title, style: PulseTypography.titleSmall.copyWith(color: color)),
+                Text(title, style: AppText.titleSmall().copyWith(color: color)),
               ],
             ),
           ),
           const Divider(height: 1),
           ...items.map((item) => Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text(item, style: PulseTypography.bodySmall),
+            child: Text(item, style: AppText.bodyWhite()),
           )),
           const SizedBox(height: 4),
         ],

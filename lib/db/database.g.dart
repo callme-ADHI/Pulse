@@ -162,6 +162,50 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _dropReasonMeta = const VerificationMeta(
+    'dropReason',
+  );
+  @override
+  late final GeneratedColumn<String> dropReason = GeneratedColumn<String>(
+    'drop_reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _droppedAtMeta = const VerificationMeta(
+    'droppedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> droppedAt = GeneratedColumn<DateTime>(
+    'dropped_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _startDateMeta = const VerificationMeta(
+    'startDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startDate = GeneratedColumn<DateTime>(
+    'start_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _endDateMeta = const VerificationMeta(
+    'endDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endDate = GeneratedColumn<DateTime>(
+    'end_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -178,6 +222,10 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
     sourceImportId,
     isDeleted,
     deletedAt,
+    dropReason,
+    droppedAt,
+    startDate,
+    endDate,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -293,6 +341,30 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
         deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
       );
     }
+    if (data.containsKey('drop_reason')) {
+      context.handle(
+        _dropReasonMeta,
+        dropReason.isAcceptableOrUnknown(data['drop_reason']!, _dropReasonMeta),
+      );
+    }
+    if (data.containsKey('dropped_at')) {
+      context.handle(
+        _droppedAtMeta,
+        droppedAt.isAcceptableOrUnknown(data['dropped_at']!, _droppedAtMeta),
+      );
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(
+        _startDateMeta,
+        startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta),
+      );
+    }
+    if (data.containsKey('end_date')) {
+      context.handle(
+        _endDateMeta,
+        endDate.isAcceptableOrUnknown(data['end_date']!, _endDateMeta),
+      );
+    }
     return context;
   }
 
@@ -358,6 +430,22 @@ class $ProjectsTable extends Projects with TableInfo<$ProjectsTable, Project> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}deleted_at'],
       ),
+      dropReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}drop_reason'],
+      ),
+      droppedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}dropped_at'],
+      ),
+      startDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_date'],
+      ),
+      endDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_date'],
+      ),
     );
   }
 
@@ -382,6 +470,10 @@ class Project extends DataClass implements Insertable<Project> {
   final String? sourceImportId;
   final bool isDeleted;
   final DateTime? deletedAt;
+  final String? dropReason;
+  final DateTime? droppedAt;
+  final DateTime? startDate;
+  final DateTime? endDate;
   const Project({
     required this.id,
     required this.name,
@@ -397,6 +489,10 @@ class Project extends DataClass implements Insertable<Project> {
     this.sourceImportId,
     required this.isDeleted,
     this.deletedAt,
+    this.dropReason,
+    this.droppedAt,
+    this.startDate,
+    this.endDate,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -428,6 +524,18 @@ class Project extends DataClass implements Insertable<Project> {
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || deletedAt != null) {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    if (!nullToAbsent || dropReason != null) {
+      map['drop_reason'] = Variable<String>(dropReason);
+    }
+    if (!nullToAbsent || droppedAt != null) {
+      map['dropped_at'] = Variable<DateTime>(droppedAt);
+    }
+    if (!nullToAbsent || startDate != null) {
+      map['start_date'] = Variable<DateTime>(startDate);
+    }
+    if (!nullToAbsent || endDate != null) {
+      map['end_date'] = Variable<DateTime>(endDate);
     }
     return map;
   }
@@ -462,6 +570,18 @@ class Project extends DataClass implements Insertable<Project> {
       deletedAt: deletedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(deletedAt),
+      dropReason: dropReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dropReason),
+      droppedAt: droppedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(droppedAt),
+      startDate: startDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startDate),
+      endDate: endDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endDate),
     );
   }
 
@@ -485,6 +605,10 @@ class Project extends DataClass implements Insertable<Project> {
       sourceImportId: serializer.fromJson<String?>(json['sourceImportId']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      dropReason: serializer.fromJson<String?>(json['dropReason']),
+      droppedAt: serializer.fromJson<DateTime?>(json['droppedAt']),
+      startDate: serializer.fromJson<DateTime?>(json['startDate']),
+      endDate: serializer.fromJson<DateTime?>(json['endDate']),
     );
   }
   @override
@@ -505,6 +629,10 @@ class Project extends DataClass implements Insertable<Project> {
       'sourceImportId': serializer.toJson<String?>(sourceImportId),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'dropReason': serializer.toJson<String?>(dropReason),
+      'droppedAt': serializer.toJson<DateTime?>(droppedAt),
+      'startDate': serializer.toJson<DateTime?>(startDate),
+      'endDate': serializer.toJson<DateTime?>(endDate),
     };
   }
 
@@ -523,6 +651,10 @@ class Project extends DataClass implements Insertable<Project> {
     Value<String?> sourceImportId = const Value.absent(),
     bool? isDeleted,
     Value<DateTime?> deletedAt = const Value.absent(),
+    Value<String?> dropReason = const Value.absent(),
+    Value<DateTime?> droppedAt = const Value.absent(),
+    Value<DateTime?> startDate = const Value.absent(),
+    Value<DateTime?> endDate = const Value.absent(),
   }) => Project(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -544,6 +676,10 @@ class Project extends DataClass implements Insertable<Project> {
         : this.sourceImportId,
     isDeleted: isDeleted ?? this.isDeleted,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    dropReason: dropReason.present ? dropReason.value : this.dropReason,
+    droppedAt: droppedAt.present ? droppedAt.value : this.droppedAt,
+    startDate: startDate.present ? startDate.value : this.startDate,
+    endDate: endDate.present ? endDate.value : this.endDate,
   );
   Project copyWithCompanion(ProjectsCompanion data) {
     return Project(
@@ -571,6 +707,12 @@ class Project extends DataClass implements Insertable<Project> {
           : this.sourceImportId,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      dropReason: data.dropReason.present
+          ? data.dropReason.value
+          : this.dropReason,
+      droppedAt: data.droppedAt.present ? data.droppedAt.value : this.droppedAt,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      endDate: data.endDate.present ? data.endDate.value : this.endDate,
     );
   }
 
@@ -590,7 +732,11 @@ class Project extends DataClass implements Insertable<Project> {
           ..write('colorSeed: $colorSeed, ')
           ..write('sourceImportId: $sourceImportId, ')
           ..write('isDeleted: $isDeleted, ')
-          ..write('deletedAt: $deletedAt')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('dropReason: $dropReason, ')
+          ..write('droppedAt: $droppedAt, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate')
           ..write(')'))
         .toString();
   }
@@ -611,6 +757,10 @@ class Project extends DataClass implements Insertable<Project> {
     sourceImportId,
     isDeleted,
     deletedAt,
+    dropReason,
+    droppedAt,
+    startDate,
+    endDate,
   );
   @override
   bool operator ==(Object other) =>
@@ -629,7 +779,11 @@ class Project extends DataClass implements Insertable<Project> {
           other.colorSeed == this.colorSeed &&
           other.sourceImportId == this.sourceImportId &&
           other.isDeleted == this.isDeleted &&
-          other.deletedAt == this.deletedAt);
+          other.deletedAt == this.deletedAt &&
+          other.dropReason == this.dropReason &&
+          other.droppedAt == this.droppedAt &&
+          other.startDate == this.startDate &&
+          other.endDate == this.endDate);
 }
 
 class ProjectsCompanion extends UpdateCompanion<Project> {
@@ -647,6 +801,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
   final Value<String?> sourceImportId;
   final Value<bool> isDeleted;
   final Value<DateTime?> deletedAt;
+  final Value<String?> dropReason;
+  final Value<DateTime?> droppedAt;
+  final Value<DateTime?> startDate;
+  final Value<DateTime?> endDate;
   final Value<int> rowid;
   const ProjectsCompanion({
     this.id = const Value.absent(),
@@ -663,6 +821,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     this.sourceImportId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.deletedAt = const Value.absent(),
+    this.dropReason = const Value.absent(),
+    this.droppedAt = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.endDate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProjectsCompanion.insert({
@@ -680,6 +842,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     this.sourceImportId = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.deletedAt = const Value.absent(),
+    this.dropReason = const Value.absent(),
+    this.droppedAt = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.endDate = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -699,6 +865,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     Expression<String>? sourceImportId,
     Expression<bool>? isDeleted,
     Expression<DateTime>? deletedAt,
+    Expression<String>? dropReason,
+    Expression<DateTime>? droppedAt,
+    Expression<DateTime>? startDate,
+    Expression<DateTime>? endDate,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -716,6 +886,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
       if (sourceImportId != null) 'source_import_id': sourceImportId,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (deletedAt != null) 'deleted_at': deletedAt,
+      if (dropReason != null) 'drop_reason': dropReason,
+      if (droppedAt != null) 'dropped_at': droppedAt,
+      if (startDate != null) 'start_date': startDate,
+      if (endDate != null) 'end_date': endDate,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -735,6 +909,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     Value<String?>? sourceImportId,
     Value<bool>? isDeleted,
     Value<DateTime?>? deletedAt,
+    Value<String?>? dropReason,
+    Value<DateTime?>? droppedAt,
+    Value<DateTime?>? startDate,
+    Value<DateTime?>? endDate,
     Value<int>? rowid,
   }) {
     return ProjectsCompanion(
@@ -752,6 +930,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
       sourceImportId: sourceImportId ?? this.sourceImportId,
       isDeleted: isDeleted ?? this.isDeleted,
       deletedAt: deletedAt ?? this.deletedAt,
+      dropReason: dropReason ?? this.dropReason,
+      droppedAt: droppedAt ?? this.droppedAt,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -801,6 +983,18 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
     if (deletedAt.present) {
       map['deleted_at'] = Variable<DateTime>(deletedAt.value);
     }
+    if (dropReason.present) {
+      map['drop_reason'] = Variable<String>(dropReason.value);
+    }
+    if (droppedAt.present) {
+      map['dropped_at'] = Variable<DateTime>(droppedAt.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<DateTime>(startDate.value);
+    }
+    if (endDate.present) {
+      map['end_date'] = Variable<DateTime>(endDate.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -824,6 +1018,10 @@ class ProjectsCompanion extends UpdateCompanion<Project> {
           ..write('sourceImportId: $sourceImportId, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('deletedAt: $deletedAt, ')
+          ..write('dropReason: $dropReason, ')
+          ..write('droppedAt: $droppedAt, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2032,6 +2230,17 @@ class $ExecutionPhasesTable extends ExecutionPhases
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _deadlineMeta = const VerificationMeta(
+    'deadline',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deadline = GeneratedColumn<DateTime>(
+    'deadline',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _sourceImportIdMeta = const VerificationMeta(
     'sourceImportId',
   );
@@ -2053,6 +2262,7 @@ class $ExecutionPhasesTable extends ExecutionPhases
     status,
     startedAt,
     doneAt,
+    deadline,
     sourceImportId,
   ];
   @override
@@ -2120,6 +2330,12 @@ class $ExecutionPhasesTable extends ExecutionPhases
         doneAt.isAcceptableOrUnknown(data['done_at']!, _doneAtMeta),
       );
     }
+    if (data.containsKey('deadline')) {
+      context.handle(
+        _deadlineMeta,
+        deadline.isAcceptableOrUnknown(data['deadline']!, _deadlineMeta),
+      );
+    }
     if (data.containsKey('source_import_id')) {
       context.handle(
         _sourceImportIdMeta,
@@ -2170,6 +2386,10 @@ class $ExecutionPhasesTable extends ExecutionPhases
         DriftSqlType.dateTime,
         data['${effectivePrefix}done_at'],
       ),
+      deadline: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deadline'],
+      ),
       sourceImportId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}source_import_id'],
@@ -2192,6 +2412,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
   final String status;
   final DateTime? startedAt;
   final DateTime? doneAt;
+  final DateTime? deadline;
   final String? sourceImportId;
   const ExecutionPhase({
     required this.id,
@@ -2202,6 +2423,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
     required this.status,
     this.startedAt,
     this.doneAt,
+    this.deadline,
     this.sourceImportId,
   });
   @override
@@ -2220,6 +2442,9 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
     }
     if (!nullToAbsent || doneAt != null) {
       map['done_at'] = Variable<DateTime>(doneAt);
+    }
+    if (!nullToAbsent || deadline != null) {
+      map['deadline'] = Variable<DateTime>(deadline);
     }
     if (!nullToAbsent || sourceImportId != null) {
       map['source_import_id'] = Variable<String>(sourceImportId);
@@ -2243,6 +2468,9 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
       doneAt: doneAt == null && nullToAbsent
           ? const Value.absent()
           : Value(doneAt),
+      deadline: deadline == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deadline),
       sourceImportId: sourceImportId == null && nullToAbsent
           ? const Value.absent()
           : Value(sourceImportId),
@@ -2263,6 +2491,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
       status: serializer.fromJson<String>(json['status']),
       startedAt: serializer.fromJson<DateTime?>(json['startedAt']),
       doneAt: serializer.fromJson<DateTime?>(json['doneAt']),
+      deadline: serializer.fromJson<DateTime?>(json['deadline']),
       sourceImportId: serializer.fromJson<String?>(json['sourceImportId']),
     );
   }
@@ -2278,6 +2507,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
       'status': serializer.toJson<String>(status),
       'startedAt': serializer.toJson<DateTime?>(startedAt),
       'doneAt': serializer.toJson<DateTime?>(doneAt),
+      'deadline': serializer.toJson<DateTime?>(deadline),
       'sourceImportId': serializer.toJson<String?>(sourceImportId),
     };
   }
@@ -2291,6 +2521,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
     String? status,
     Value<DateTime?> startedAt = const Value.absent(),
     Value<DateTime?> doneAt = const Value.absent(),
+    Value<DateTime?> deadline = const Value.absent(),
     Value<String?> sourceImportId = const Value.absent(),
   }) => ExecutionPhase(
     id: id ?? this.id,
@@ -2301,6 +2532,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
     status: status ?? this.status,
     startedAt: startedAt.present ? startedAt.value : this.startedAt,
     doneAt: doneAt.present ? doneAt.value : this.doneAt,
+    deadline: deadline.present ? deadline.value : this.deadline,
     sourceImportId: sourceImportId.present
         ? sourceImportId.value
         : this.sourceImportId,
@@ -2315,6 +2547,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
       status: data.status.present ? data.status.value : this.status,
       startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
       doneAt: data.doneAt.present ? data.doneAt.value : this.doneAt,
+      deadline: data.deadline.present ? data.deadline.value : this.deadline,
       sourceImportId: data.sourceImportId.present
           ? data.sourceImportId.value
           : this.sourceImportId,
@@ -2332,6 +2565,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
           ..write('status: $status, ')
           ..write('startedAt: $startedAt, ')
           ..write('doneAt: $doneAt, ')
+          ..write('deadline: $deadline, ')
           ..write('sourceImportId: $sourceImportId')
           ..write(')'))
         .toString();
@@ -2347,6 +2581,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
     status,
     startedAt,
     doneAt,
+    deadline,
     sourceImportId,
   );
   @override
@@ -2361,6 +2596,7 @@ class ExecutionPhase extends DataClass implements Insertable<ExecutionPhase> {
           other.status == this.status &&
           other.startedAt == this.startedAt &&
           other.doneAt == this.doneAt &&
+          other.deadline == this.deadline &&
           other.sourceImportId == this.sourceImportId);
 }
 
@@ -2373,6 +2609,7 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
   final Value<String> status;
   final Value<DateTime?> startedAt;
   final Value<DateTime?> doneAt;
+  final Value<DateTime?> deadline;
   final Value<String?> sourceImportId;
   final Value<int> rowid;
   const ExecutionPhasesCompanion({
@@ -2384,6 +2621,7 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
     this.status = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.doneAt = const Value.absent(),
+    this.deadline = const Value.absent(),
     this.sourceImportId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2396,6 +2634,7 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
     this.status = const Value.absent(),
     this.startedAt = const Value.absent(),
     this.doneAt = const Value.absent(),
+    this.deadline = const Value.absent(),
     this.sourceImportId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -2411,6 +2650,7 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
     Expression<String>? status,
     Expression<DateTime>? startedAt,
     Expression<DateTime>? doneAt,
+    Expression<DateTime>? deadline,
     Expression<String>? sourceImportId,
     Expression<int>? rowid,
   }) {
@@ -2423,6 +2663,7 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
       if (status != null) 'status': status,
       if (startedAt != null) 'started_at': startedAt,
       if (doneAt != null) 'done_at': doneAt,
+      if (deadline != null) 'deadline': deadline,
       if (sourceImportId != null) 'source_import_id': sourceImportId,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2437,6 +2678,7 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
     Value<String>? status,
     Value<DateTime?>? startedAt,
     Value<DateTime?>? doneAt,
+    Value<DateTime?>? deadline,
     Value<String?>? sourceImportId,
     Value<int>? rowid,
   }) {
@@ -2449,6 +2691,7 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
       status: status ?? this.status,
       startedAt: startedAt ?? this.startedAt,
       doneAt: doneAt ?? this.doneAt,
+      deadline: deadline ?? this.deadline,
       sourceImportId: sourceImportId ?? this.sourceImportId,
       rowid: rowid ?? this.rowid,
     );
@@ -2481,6 +2724,9 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
     if (doneAt.present) {
       map['done_at'] = Variable<DateTime>(doneAt.value);
     }
+    if (deadline.present) {
+      map['deadline'] = Variable<DateTime>(deadline.value);
+    }
     if (sourceImportId.present) {
       map['source_import_id'] = Variable<String>(sourceImportId.value);
     }
@@ -2501,6 +2747,7 @@ class ExecutionPhasesCompanion extends UpdateCompanion<ExecutionPhase> {
           ..write('status: $status, ')
           ..write('startedAt: $startedAt, ')
           ..write('doneAt: $doneAt, ')
+          ..write('deadline: $deadline, ')
           ..write('sourceImportId: $sourceImportId, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -5570,6 +5817,10 @@ typedef $$ProjectsTableCreateCompanionBuilder =
       Value<String?> sourceImportId,
       Value<bool> isDeleted,
       Value<DateTime?> deletedAt,
+      Value<String?> dropReason,
+      Value<DateTime?> droppedAt,
+      Value<DateTime?> startDate,
+      Value<DateTime?> endDate,
       Value<int> rowid,
     });
 typedef $$ProjectsTableUpdateCompanionBuilder =
@@ -5588,6 +5839,10 @@ typedef $$ProjectsTableUpdateCompanionBuilder =
       Value<String?> sourceImportId,
       Value<bool> isDeleted,
       Value<DateTime?> deletedAt,
+      Value<String?> dropReason,
+      Value<DateTime?> droppedAt,
+      Value<DateTime?> startDate,
+      Value<DateTime?> endDate,
       Value<int> rowid,
     });
 
@@ -5787,6 +6042,26 @@ class $$ProjectsTableFilterComposer
 
   ColumnFilters<DateTime> get deletedAt => $composableBuilder(
     column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get dropReason => $composableBuilder(
+    column: $table.dropReason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get droppedAt => $composableBuilder(
+    column: $table.droppedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endDate => $composableBuilder(
+    column: $table.endDate,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6019,6 +6294,26 @@ class $$ProjectsTableOrderingComposer
     column: $table.deletedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get dropReason => $composableBuilder(
+    column: $table.dropReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get droppedAt => $composableBuilder(
+    column: $table.droppedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startDate => $composableBuilder(
+    column: $table.startDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endDate => $composableBuilder(
+    column: $table.endDate,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProjectsTableAnnotationComposer
@@ -6081,6 +6376,20 @@ class $$ProjectsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get deletedAt =>
       $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get dropReason => $composableBuilder(
+    column: $table.dropReason,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get droppedAt =>
+      $composableBuilder(column: $table.droppedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endDate =>
+      $composableBuilder(column: $table.endDate, builder: (column) => column);
 
   Expression<T> sessionsRefs<T extends Object>(
     Expression<T> Function($$SessionsTableAnnotationComposer a) f,
@@ -6282,6 +6591,10 @@ class $$ProjectsTableTableManager
                 Value<String?> sourceImportId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> dropReason = const Value.absent(),
+                Value<DateTime?> droppedAt = const Value.absent(),
+                Value<DateTime?> startDate = const Value.absent(),
+                Value<DateTime?> endDate = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProjectsCompanion(
                 id: id,
@@ -6298,6 +6611,10 @@ class $$ProjectsTableTableManager
                 sourceImportId: sourceImportId,
                 isDeleted: isDeleted,
                 deletedAt: deletedAt,
+                dropReason: dropReason,
+                droppedAt: droppedAt,
+                startDate: startDate,
+                endDate: endDate,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6316,6 +6633,10 @@ class $$ProjectsTableTableManager
                 Value<String?> sourceImportId = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
+                Value<String?> dropReason = const Value.absent(),
+                Value<DateTime?> droppedAt = const Value.absent(),
+                Value<DateTime?> startDate = const Value.absent(),
+                Value<DateTime?> endDate = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProjectsCompanion.insert(
                 id: id,
@@ -6332,6 +6653,10 @@ class $$ProjectsTableTableManager
                 sourceImportId: sourceImportId,
                 isDeleted: isDeleted,
                 deletedAt: deletedAt,
+                dropReason: dropReason,
+                droppedAt: droppedAt,
+                startDate: startDate,
+                endDate: endDate,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7391,6 +7716,7 @@ typedef $$ExecutionPhasesTableCreateCompanionBuilder =
       Value<String> status,
       Value<DateTime?> startedAt,
       Value<DateTime?> doneAt,
+      Value<DateTime?> deadline,
       Value<String?> sourceImportId,
       Value<int> rowid,
     });
@@ -7404,6 +7730,7 @@ typedef $$ExecutionPhasesTableUpdateCompanionBuilder =
       Value<String> status,
       Value<DateTime?> startedAt,
       Value<DateTime?> doneAt,
+      Value<DateTime?> deadline,
       Value<String?> sourceImportId,
       Value<int> rowid,
     });
@@ -7481,6 +7808,11 @@ class $$ExecutionPhasesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get deadline => $composableBuilder(
+    column: $table.deadline,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get sourceImportId => $composableBuilder(
     column: $table.sourceImportId,
     builder: (column) => ColumnFilters(column),
@@ -7554,6 +7886,11 @@ class $$ExecutionPhasesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get deadline => $composableBuilder(
+    column: $table.deadline,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get sourceImportId => $composableBuilder(
     column: $table.sourceImportId,
     builder: (column) => ColumnOrderings(column),
@@ -7612,6 +7949,9 @@ class $$ExecutionPhasesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get doneAt =>
       $composableBuilder(column: $table.doneAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deadline =>
+      $composableBuilder(column: $table.deadline, builder: (column) => column);
 
   GeneratedColumn<String> get sourceImportId => $composableBuilder(
     column: $table.sourceImportId,
@@ -7680,6 +8020,7 @@ class $$ExecutionPhasesTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<DateTime?> startedAt = const Value.absent(),
                 Value<DateTime?> doneAt = const Value.absent(),
+                Value<DateTime?> deadline = const Value.absent(),
                 Value<String?> sourceImportId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExecutionPhasesCompanion(
@@ -7691,6 +8032,7 @@ class $$ExecutionPhasesTableTableManager
                 status: status,
                 startedAt: startedAt,
                 doneAt: doneAt,
+                deadline: deadline,
                 sourceImportId: sourceImportId,
                 rowid: rowid,
               ),
@@ -7704,6 +8046,7 @@ class $$ExecutionPhasesTableTableManager
                 Value<String> status = const Value.absent(),
                 Value<DateTime?> startedAt = const Value.absent(),
                 Value<DateTime?> doneAt = const Value.absent(),
+                Value<DateTime?> deadline = const Value.absent(),
                 Value<String?> sourceImportId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExecutionPhasesCompanion.insert(
@@ -7715,6 +8058,7 @@ class $$ExecutionPhasesTableTableManager
                 status: status,
                 startedAt: startedAt,
                 doneAt: doneAt,
+                deadline: deadline,
                 sourceImportId: sourceImportId,
                 rowid: rowid,
               ),

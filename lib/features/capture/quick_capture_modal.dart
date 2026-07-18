@@ -99,19 +99,17 @@ class _QuickCaptureModalState extends ConsumerState<QuickCaptureModal> {
               filled: true,
               fillColor: AppColors.surface3,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppDim.radiusInput),
-                borderSide:
-                    const BorderSide(color: AppColors.borderDefault),
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppDim.radiusInput),
-                borderSide:
-                    const BorderSide(color: AppColors.borderDefault),
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppDim.radiusInput),
+                borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(
-                    color: AppColors.gold, width: 1.5),
+                    color: AppColors.gold, width: 1.0),
               ),
               contentPadding: const EdgeInsets.all(AppDim.pad12),
             ),

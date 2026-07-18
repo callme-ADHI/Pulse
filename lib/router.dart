@@ -10,6 +10,10 @@ import 'features/import/import_preview_screen.dart';
 import 'features/weekly_report/weekly_report_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/settings/import_history_screen.dart';
+import 'features/archive/archive_screen.dart';
+import 'features/projects/projects_screen.dart';
+import 'features/idea_detail/idea_detail_screen.dart';
+import 'features/ideas/ideas_screen.dart';
 import 'widgets/nav_bar.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -24,6 +28,11 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const HomeScreen(),
         ),
         GoRoute(
+          path: '/projects',
+          name: 'projects',
+          builder: (context, state) => const ProjectsScreen(),
+        ),
+        GoRoute(
           path: '/map',
           name: 'map',
           builder: (context, state) => const MapScreen(),
@@ -32,6 +41,16 @@ final GoRouter appRouter = GoRouter(
           path: '/inbox',
           name: 'inbox',
           builder: (context, state) => const InboxScreen(),
+        ),
+        GoRoute(
+          path: '/ideas',
+          name: 'ideas',
+          builder: (context, state) => const IdeasScreen(),
+        ),
+        GoRoute(
+          path: '/weekly-report',
+          name: 'weeklyReport',
+          builder: (context, state) => const WeeklyReportScreen(),
         ),
         GoRoute(
           path: '/settings',
@@ -55,6 +74,13 @@ final GoRouter appRouter = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/idea/:id',
+      name: 'ideaDetail',
+      builder: (context, state) => IdeaDetailScreen(
+        ideaId: state.pathParameters['id']!,
+      ),
+    ),
+    GoRoute(
       path: '/session/:projectId',
       name: 'sessionActive',
       builder: (context, state) => SessionActiveScreen(
@@ -68,6 +94,7 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => NewProjectScreen(
         initialName: state.uri.queryParameters['name'],
         initialDescription: state.uri.queryParameters['desc'],
+        ideaId: state.uri.queryParameters['ideaId'],
       ),
     ),
     GoRoute(
@@ -87,9 +114,9 @@ final GoRouter appRouter = GoRouter(
       },
     ),
     GoRoute(
-      path: '/weekly-report',
-      name: 'weeklyReport',
-      builder: (context, state) => const WeeklyReportScreen(),
+      path: '/archive',
+      name: 'archive',
+      builder: (context, state) => const ArchiveScreen(),
     ),
   ],
 );

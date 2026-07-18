@@ -5,7 +5,9 @@ import '../../db/database.dart';
 import '../../db/daos/project_dao.dart';
 import '../../db/daos/decay_log_dao.dart';
 import '../../db/daos/dead_time_dao.dart';
+import '../../db/daos/phase_dao.dart';
 import 'decay_calculator.dart';
+import '../notifications/notification_scheduler.dart';
 import 'package:uuid/uuid.dart';
 
 const String kDecayJobName = 'pulse_decay_job';
@@ -25,14 +27,15 @@ Future<void> _runDecayJob() async {
   final projectDao  = ProjectDao(db);
   final decayLogDao = DecayLogDao(db);
   final deadTimeDao = DeadTimeDao(db);
+  final phaseDao    = PhaseDao(db);
   const uuid = Uuid();
 
   try {
+    // ── 1. Decay scoring ────────────────────────────────────────────────────
     final projects = await projectDao.getProjectsForDecayJob();
     final now = DateTime.now();
 
     for (final project in projects) {
-      // Load dead times for this project
       final rawDeadTimes = await deadTimeDao.getDeadTimesForProject(project.id);
       final deadPeriods  = rawDeadTimes.map((dt) => DeadPeriod(
         fromDate: dt.fromDate,
@@ -59,10 +62,55 @@ Future<void> _runDecayJob() async {
         ),
       );
 
+      // ── Fire nudge notification for drifting/cold/critical projects ───────
+      if (result.zone == 'cold' || result.zone == 'critical' || result.zone == 'drifting') {
+        // Use a stable numeric id derived from the project id hash
+        final notifId = project.id.hashCode.abs() % 100000;
+        try {
+          await sendProjectNudge(
+            id: notifId,
+            projectName: project.name,
+            zone: result.zone,
+          );
+        } catch (e) {
+          debugPrint('[DecayJob] Failed to send nudge for ${project.name}: $e');
+        }
+      }
+
       debugPrint('[DecayJob] ${project.name}: ${result.score.toStringAsFixed(1)} (${result.zone})');
     }
 
     await projectDao.hardDeleteExpired();
+
+    // ── 2. Phase deadline check ────────────────────────────────────────────
+    try {
+      final overduePhases = await phaseDao.getOverduePhases();
+      for (final phase in overduePhases) {
+        // Mark phase as delayed
+        await phaseDao.markPhaseDelayed(phase.id);
+
+        // Look up project name for the notification
+        final project = await projectDao.getProjectById(phase.projectId);
+        final projectName = project?.name ?? 'Project';
+        final notifId = (phase.id.hashCode.abs() % 100000) + 200000;
+
+        try {
+          await sendPhaseDeadlineNotification(
+            id: notifId,
+            phaseName: phase.name,
+            projectName: projectName,
+            deadline: phase.deadline!,
+          );
+        } catch (e) {
+          debugPrint('[DecayJob] Phase deadline notif failed for ${phase.name}: $e');
+        }
+
+        debugPrint('[DecayJob] Phase "${phase.name}" in $projectName is overdue — marked delayed.');
+      }
+    } catch (e) {
+      debugPrint('[DecayJob] Phase deadline check failed: $e');
+    }
+
     debugPrint('[DecayJob] Done. ${projects.length} projects processed.');
   } finally {
     await db.close();
